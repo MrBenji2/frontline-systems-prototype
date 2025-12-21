@@ -84,6 +84,7 @@ Pickup UX:
 Logging:
 - Loot rolls append to:
   - `Application.persistentDataPath/loot_roll_log.txt`
+- The file is **append-only** (no truncation/rotation in-game).
 - Each entry includes:
   - timestamp, npcType, eligibleCount, chosenItemId, weight, poolBefore, poolAfter
 
