@@ -18,6 +18,7 @@ namespace Frontline.UI
         [SerializeField] private bool visible = true;
         [SerializeField] private KeyCode toggleKey = KeyCode.F1;
 
+        private Vector2 _panelScroll;
         private Vector2 _scroll;
         private Vector2 _scrollCreated;
         private Vector2 _scrollSalvage;
@@ -45,13 +46,17 @@ namespace Frontline.UI
                 return;
 
             const int pad = 10;
-            var rect = new Rect(pad, pad, 520, Screen.height - pad * 2);
+            var panelWidth = Mathf.Min(520, Screen.width - 20);
+            var panelHeight = Mathf.Min(720, Screen.height - 20);
+            var rect = new Rect(pad, pad, panelWidth, panelHeight);
             GUILayout.BeginArea(rect, GUI.skin.window);
+            _panelScroll = GUILayout.BeginScrollView(_panelScroll);
             GUILayout.Label("DestroyedPool Debug (F1 to toggle)");
 
             if (DestroyedPoolService.Instance == null)
             {
                 GUILayout.Label("DestroyedPoolService: MISSING");
+                GUILayout.EndScrollView();
                 GUILayout.EndArea();
                 return;
             }
@@ -110,6 +115,7 @@ namespace Frontline.UI
             GUILayout.Space(10);
             DrawPoolTables();
 
+            GUILayout.EndScrollView();
             GUILayout.EndArea();
         }
 
