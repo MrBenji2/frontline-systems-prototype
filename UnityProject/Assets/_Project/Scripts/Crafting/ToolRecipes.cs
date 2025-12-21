@@ -47,10 +47,10 @@ namespace Frontline.Crafting
 
         private static List<ToolRecipe> BuildAll()
         {
-            // Durability tuned to break quickly for milestone verification.
-            const int woodDur = 12;
-            const int stoneDur = 24;
-            const int ironDur = 48;
+            // Durability tuned to last longer (Milestone 4.1: ~8x).
+            const int woodDur = 12 * 8;
+            const int stoneDur = 24 * 8;
+            const int ironDur = 48 * 8;
 
             const int hitWood = 10;
             const int hitStone = 12;
@@ -80,7 +80,7 @@ namespace Frontline.Crafting
 
                 // Gas can (single tier for now; crafted from non-diesel so it can bootstrap)
                 // Milestone 4 station choice: Workbench
-                Make(CraftingStationType.Workbench, "tool_gas_can", "Gas Can", ToolType.GasCan, ToolTier.None, 32, 10, (Iron, 8), (Wood, 2)),
+                Make(CraftingStationType.Workbench, "tool_gas_can", "Gas Can", ToolType.GasCan, ToolTier.None, 32 * 8, 10, (Iron, 8), (Wood, 2)),
             };
         }
 
