@@ -4,6 +4,7 @@ using System.Linq;
 using Frontline.Definitions;
 using Frontline.Economy;
 using Frontline.DebugTools;
+using Frontline.Harvesting;
 using UnityEngine;
 
 namespace Frontline.UI
@@ -18,6 +19,8 @@ namespace Frontline.UI
         [SerializeField] private KeyCode toggleKey = KeyCode.F1;
 
         private Vector2 _scroll;
+        private Vector2 _scrollCreated;
+        private Vector2 _scrollSalvage;
         private string _spawnDestroyId = "wpn_rifle";
         private int _spawnDestroyCount = 1;
 
@@ -87,6 +90,13 @@ namespace Frontline.UI
             GUILayout.EndHorizontal();
 
             GUILayout.Space(6);
+            GUILayout.Label("Milestone 3 (Harvesting)");
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Spawn Harvest Nodes", GUILayout.Width(180)))
+                DevSpawnHarvestNodes.SpawnNodeSetNearPlayer();
+            GUILayout.EndHorizontal();
+
+            GUILayout.Space(6);
             GUILayout.Label("NPC Spawns (locked until NPC system milestone)");
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Spawn Easy NPC"))
@@ -109,7 +119,7 @@ namespace Frontline.UI
             var destroyedButUncrafted = DestroyedPoolService.Instance.GetDestroyedButUncraftedCounts();
 
             GUILayout.Label("Eligible DestroyedPool (craftedEver && destroyed):");
-            _scroll = GUILayout.BeginScrollView(_scroll);
+            _scroll = GUILayout.BeginScrollView(_scroll, GUILayout.Height(220));
 
             var ids = _cachedIds.Count > 0
                 ? _cachedIds
@@ -137,6 +147,12 @@ namespace Frontline.UI
             }
 
             GUILayout.EndScrollView();
+
+            GUILayout.Space(8);
+            DrawCreatedPool();
+
+            GUILayout.Space(8);
+            DrawSalvagePool();
         }
 
         private void RefreshIds()
@@ -145,6 +161,58 @@ namespace Frontline.UI
             if (DefinitionRegistry.Instance == null)
                 return;
             _cachedIds.AddRange(DefinitionRegistry.Instance.AllDefinitionIds());
+        }
+
+        private void DrawCreatedPool()
+        {
+            if (CreatedPoolService.Instance == null)
+            {
+                GUILayout.Label("CreatedPool: MISSING");
+                return;
+            }
+
+            GUILayout.Label("CreatedPool (crafted tools):");
+            _scrollCreated = GUILayout.BeginScrollView(_scrollCreated, GUILayout.Height(140));
+
+            var created = CreatedPoolService.Instance.GetAllCreatedCounts();
+            foreach (var kv in created.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+            {
+                GUILayout.BeginHorizontal();
+                GUILayout.Label(kv.Key, GUILayout.Width(260));
+                GUILayout.Label($"created: {kv.Value}", GUILayout.Width(120));
+                GUILayout.EndHorizontal();
+            }
+
+            if (created.Count == 0)
+                GUILayout.Label("(empty)");
+
+            GUILayout.EndScrollView();
+        }
+
+        private void DrawSalvagePool()
+        {
+            if (SalvagePoolService.Instance == null)
+            {
+                GUILayout.Label("SalvagePool: MISSING");
+                return;
+            }
+
+            GUILayout.Label("SalvagePool (resource credits from broken tools):");
+            _scrollSalvage = GUILayout.BeginScrollView(_scrollSalvage, GUILayout.Height(140));
+
+            var salvage = SalvagePoolService.Instance.GetAllCredits();
+            foreach (var kv in salvage.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+            {
+                GUILayout.BeginHorizontal();
+                GUILayout.Label(kv.Key, GUILayout.Width(260));
+                GUILayout.Label($"credits: {kv.Value}", GUILayout.Width(120));
+                GUILayout.EndHorizontal();
+            }
+
+            if (salvage.Count == 0)
+                GUILayout.Label("(empty)");
+
+            GUILayout.EndScrollView();
         }
     }
 }

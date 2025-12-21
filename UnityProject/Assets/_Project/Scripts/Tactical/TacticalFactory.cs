@@ -1,4 +1,5 @@
 using UnityEngine;
+using Frontline.Harvesting;
 
 namespace Frontline.Tactical
 {
@@ -27,6 +28,7 @@ namespace Frontline.Tactical
             cc.radius = 0.4f;
 
             var ctrl = player.AddComponent<TacticalPlayerController>();
+            player.AddComponent<TacticalHarvestInteractor>();
             return ctrl;
         }
 
