@@ -16,6 +16,7 @@ namespace Frontline.UI
         [SerializeField] private KeyCode toggleKey = KeyCode.I;
 
         private Vector2 _scroll;
+        private Vector2 _panelScroll;
 
         private static readonly string[] ResourceOrder =
         {
@@ -38,13 +39,18 @@ namespace Frontline.UI
                 return;
 
             const int pad = 10;
-            var rect = new Rect(Screen.width - 420 - pad, pad, 420, Screen.height - pad * 2);
+            var panelWidth = Mathf.Min(520, Screen.width - 20);
+            var panelHeight = Mathf.Min(720, Screen.height - 20);
+            var x = Mathf.Max(pad, Screen.width - panelWidth - pad);
+            var rect = new Rect(x, pad, panelWidth, panelHeight);
             GUILayout.BeginArea(rect, GUI.skin.window);
+            _panelScroll = GUILayout.BeginScrollView(_panelScroll);
             GUILayout.Label("Inventory + Crafting (I to toggle)");
 
             if (PlayerInventoryService.Instance == null)
             {
                 GUILayout.Label("PlayerInventoryService: MISSING");
+                GUILayout.EndScrollView();
                 GUILayout.EndArea();
                 return;
             }
@@ -57,6 +63,7 @@ namespace Frontline.UI
             GUILayout.Space(6);
             DrawCrafting();
 
+            GUILayout.EndScrollView();
             GUILayout.EndArea();
         }
 
