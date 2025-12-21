@@ -148,6 +148,8 @@ namespace Frontline.UI
             {
                 if (recipe == null)
                     continue;
+                if (recipe.stationType != CraftingStationType.Inventory)
+                    continue;
 
                 GUILayout.BeginHorizontal();
                 GUILayout.Label($"{recipe.displayName}", GUILayout.Width(170));

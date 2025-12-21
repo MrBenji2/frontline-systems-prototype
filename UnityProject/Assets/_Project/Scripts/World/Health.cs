@@ -19,6 +19,14 @@ namespace Frontline.World
             CurrentHp = maxHp;
         }
 
+        public void Configure(int hp, bool destroyOnDeath = true)
+        {
+            maxHp = Mathf.Max(1, hp);
+            destroyGameObjectOnDeath = destroyOnDeath;
+            CurrentHp = maxHp;
+            IsDead = false;
+        }
+
         public void ApplyDamage(int amount, GameObject instigator = null)
         {
             if (IsDead)

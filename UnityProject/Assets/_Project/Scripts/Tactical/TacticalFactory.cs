@@ -1,5 +1,8 @@
 using UnityEngine;
 using Frontline.Harvesting;
+using Frontline.Gameplay;
+using Frontline.Combat;
+using Frontline.Loot;
 
 namespace Frontline.Tactical
 {
@@ -29,6 +32,10 @@ namespace Frontline.Tactical
 
             var ctrl = player.AddComponent<TacticalPlayerController>();
             player.AddComponent<TacticalHarvestInteractor>();
+            player.AddComponent<CraftingStationInteractor>();
+            player.AddComponent<PlayerCombatVitals>();
+            player.AddComponent<PlayerCombatController>();
+            player.AddComponent<LootInteractor>();
             return ctrl;
         }
 

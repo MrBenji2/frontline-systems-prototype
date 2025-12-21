@@ -5,6 +5,7 @@ using Frontline.Definitions;
 using Frontline.Economy;
 using Frontline.DebugTools;
 using Frontline.Harvesting;
+using Frontline.Combat;
 using UnityEngine;
 
 namespace Frontline.UI
@@ -102,14 +103,24 @@ namespace Frontline.UI
             GUILayout.EndHorizontal();
 
             GUILayout.Space(6);
-            GUILayout.Label("NPC Spawns (locked until NPC system milestone)");
+            GUILayout.Label("NPC Spawns:");
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Spawn Easy NPC"))
-                Debug.Log("NPC system not implemented yet (blocked until DestroyedPool milestone is committed).");
-            if (GUILayout.Button("Spawn Medium NPC"))
-                Debug.Log("NPC system not implemented yet (blocked until DestroyedPool milestone is committed).");
-            if (GUILayout.Button("Spawn Hard NPC"))
-                Debug.Log("NPC system not implemented yet (blocked until DestroyedPool milestone is committed).");
+            if (GUILayout.Button("Easy Ranged"))
+                DevSpawnNpcs.Spawn(NpcDifficulty.Easy, NpcAttackType.Ranged, 1);
+            if (GUILayout.Button("Easy Melee"))
+                DevSpawnNpcs.Spawn(NpcDifficulty.Easy, NpcAttackType.Melee, 1);
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Medium Ranged"))
+                DevSpawnNpcs.Spawn(NpcDifficulty.Medium, NpcAttackType.Ranged, 1);
+            if (GUILayout.Button("Medium Melee"))
+                DevSpawnNpcs.Spawn(NpcDifficulty.Medium, NpcAttackType.Melee, 1);
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Hard Ranged"))
+                DevSpawnNpcs.Spawn(NpcDifficulty.Hard, NpcAttackType.Ranged, 1);
+            if (GUILayout.Button("Hard Melee"))
+                DevSpawnNpcs.Spawn(NpcDifficulty.Hard, NpcAttackType.Melee, 1);
             GUILayout.EndHorizontal();
 
             GUILayout.Space(10);

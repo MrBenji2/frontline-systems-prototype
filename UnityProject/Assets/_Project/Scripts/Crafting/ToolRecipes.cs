@@ -59,31 +59,33 @@ namespace Frontline.Crafting
             return new List<ToolRecipe>
             {
                 // Axe
-                Make("tool_axe_wood", "Wood Axe", ToolType.Axe, ToolTier.Wood, woodDur, hitWood, (Wood, 10)),
-                Make("tool_axe_stone", "Stone Axe", ToolType.Axe, ToolTier.Stone, stoneDur, hitStone, (Stone, 8), (Wood, 4)),
-                Make("tool_axe_iron", "Iron Axe", ToolType.Axe, ToolTier.Iron, ironDur, hitIron, (Iron, 6), (Stone, 4)),
+                Make(CraftingStationType.Inventory, "tool_axe_wood", "Wood Axe", ToolType.Axe, ToolTier.Wood, woodDur, hitWood, (Wood, 10)),
+                Make(CraftingStationType.Workbench, "tool_axe_stone", "Stone Axe", ToolType.Axe, ToolTier.Stone, stoneDur, hitStone, (Stone, 8), (Wood, 4)),
+                Make(CraftingStationType.Foundry, "tool_axe_iron", "Iron Axe", ToolType.Axe, ToolTier.Iron, ironDur, hitIron, (Iron, 6), (Stone, 4)),
 
                 // Shovel (per spec: harvests rocks)
-                Make("tool_shovel_wood", "Wood Shovel", ToolType.Shovel, ToolTier.Wood, woodDur, hitWood, (Wood, 10)),
-                Make("tool_shovel_stone", "Stone Shovel", ToolType.Shovel, ToolTier.Stone, stoneDur, hitStone, (Stone, 8), (Wood, 4)),
-                Make("tool_shovel_iron", "Iron Shovel", ToolType.Shovel, ToolTier.Iron, ironDur, hitIron, (Iron, 6), (Stone, 4)),
+                Make(CraftingStationType.Inventory, "tool_shovel_wood", "Wood Shovel", ToolType.Shovel, ToolTier.Wood, woodDur, hitWood, (Wood, 10)),
+                Make(CraftingStationType.Workbench, "tool_shovel_stone", "Stone Shovel", ToolType.Shovel, ToolTier.Stone, stoneDur, hitStone, (Stone, 8), (Wood, 4)),
+                Make(CraftingStationType.Foundry, "tool_shovel_iron", "Iron Shovel", ToolType.Shovel, ToolTier.Iron, ironDur, hitIron, (Iron, 6), (Stone, 4)),
 
                 // Wrench
-                Make("tool_wrench_wood", "Wood Wrench", ToolType.Wrench, ToolTier.Wood, woodDur, hitWood, (Wood, 10)),
-                Make("tool_wrench_stone", "Stone Wrench", ToolType.Wrench, ToolTier.Stone, stoneDur, hitStone, (Stone, 8), (Wood, 4)),
-                Make("tool_wrench_iron", "Iron Wrench", ToolType.Wrench, ToolTier.Iron, ironDur, hitIron, (Iron, 6), (Stone, 4)),
+                Make(CraftingStationType.Inventory, "tool_wrench_wood", "Wood Wrench", ToolType.Wrench, ToolTier.Wood, woodDur, hitWood, (Wood, 10)),
+                Make(CraftingStationType.Workbench, "tool_wrench_stone", "Stone Wrench", ToolType.Wrench, ToolTier.Stone, stoneDur, hitStone, (Stone, 8), (Wood, 4)),
+                Make(CraftingStationType.Foundry, "tool_wrench_iron", "Iron Wrench", ToolType.Wrench, ToolTier.Iron, ironDur, hitIron, (Iron, 6), (Stone, 4)),
 
                 // Hammer
-                Make("tool_hammer_wood", "Wood Hammer", ToolType.Hammer, ToolTier.Wood, woodDur, hitWood, (Wood, 10)),
-                Make("tool_hammer_stone", "Stone Hammer", ToolType.Hammer, ToolTier.Stone, stoneDur, hitStone, (Stone, 8), (Wood, 4)),
-                Make("tool_hammer_iron", "Iron Hammer", ToolType.Hammer, ToolTier.Iron, ironDur, hitIron, (Iron, 6), (Stone, 4)),
+                Make(CraftingStationType.Inventory, "tool_hammer_wood", "Wood Hammer", ToolType.Hammer, ToolTier.Wood, woodDur, hitWood, (Wood, 10)),
+                Make(CraftingStationType.Workbench, "tool_hammer_stone", "Stone Hammer", ToolType.Hammer, ToolTier.Stone, stoneDur, hitStone, (Stone, 8), (Wood, 4)),
+                Make(CraftingStationType.Foundry, "tool_hammer_iron", "Iron Hammer", ToolType.Hammer, ToolTier.Iron, ironDur, hitIron, (Iron, 6), (Stone, 4)),
 
                 // Gas can (single tier for now; crafted from non-diesel so it can bootstrap)
-                Make("tool_gas_can", "Gas Can", ToolType.GasCan, ToolTier.None, 32, 10, (Iron, 8), (Wood, 2)),
+                // Milestone 4 station choice: Workbench
+                Make(CraftingStationType.Workbench, "tool_gas_can", "Gas Can", ToolType.GasCan, ToolTier.None, 32, 10, (Iron, 8), (Wood, 2)),
             };
         }
 
         private static ToolRecipe Make(
+            CraftingStationType stationType,
             string itemId,
             string name,
             ToolType type,
@@ -98,6 +100,7 @@ namespace Frontline.Crafting
                 displayName = name,
                 toolType = type,
                 tier = tier,
+                stationType = stationType,
                 maxDurability = Math.Max(1, durability),
                 hitDamage = Math.Max(1, hitDamage),
                 costs = new List<ToolRecipe.Cost>()

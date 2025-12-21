@@ -51,6 +51,29 @@ namespace Frontline.Economy
             return _destroyedCounts.TryGetValue(definitionId, out var c) ? c : 0;
         }
 
+        /// <summary>
+        /// Closed-economy consumption step (Milestone 4 loot):
+        /// Decrements the eligible destroyed count (craftedEver && destroyed) if available.
+        /// Returns true only if the pool was decremented.
+        /// </summary>
+        public bool TryConsumeDestroyed(string definitionId, int amount = 1)
+        {
+            if (!IsValidId(definitionId))
+                return false;
+            if (amount <= 0)
+                return false;
+
+            var before = GetDestroyedCount(definitionId);
+            if (before < amount)
+                return false;
+
+            var after = Math.Max(0, before - amount);
+            _destroyedCounts[definitionId] = after;
+            SaveToDisk();
+            Changed?.Invoke();
+            return true;
+        }
+
         public void MarkCrafted(string definitionId)
         {
             if (!IsValidId(definitionId))
