@@ -1,0 +1,65 @@
+{
+  "materials": [
+    { "id": "mat_scrap", "displayName": "Scrap", "tier": 1 },
+    { "id": "mat_alloy", "displayName": "Alloy", "tier": 2 },
+    { "id": "mat_components", "displayName": "Components", "tier": 3 }
+  ],
+  "weapons": [
+    {
+      "id": "wpn_rifle",
+      "displayName": "Rifle",
+      "craftCosts": [{ "materialId": "mat_scrap", "amount": 20 }]
+    },
+    {
+      "id": "wpn_smg",
+      "displayName": "SMG",
+      "craftCosts": [{ "materialId": "mat_scrap", "amount": 30 }]
+    },
+    {
+      "id": "wpn_lmg",
+      "displayName": "LMG",
+      "craftCosts": [
+        { "materialId": "mat_scrap", "amount": 40 },
+        { "materialId": "mat_alloy", "amount": 10 }
+      ]
+    },
+    {
+      "id": "wpn_dmr",
+      "displayName": "DMR",
+      "craftCosts": [{ "materialId": "mat_alloy", "amount": 25 }]
+    },
+    {
+      "id": "wpn_launcher",
+      "displayName": "Launcher",
+      "craftCosts": [
+        { "materialId": "mat_alloy", "amount": 30 },
+        { "materialId": "mat_components", "amount": 12 }
+      ]
+    }
+  ],
+  "structures": [
+    { "id": "str_sandbags", "displayName": "Sandbags", "craftCosts": [{ "materialId": "mat_scrap", "amount": 10 }] },
+    { "id": "str_watchtower", "displayName": "Watchtower", "craftCosts": [{ "materialId": "mat_scrap", "amount": 35 }, { "materialId": "mat_alloy", "amount": 5 }] }
+  ],
+  "vehicles": [
+    {
+      "id": "veh_transport_chassis",
+      "displayName": "Transport Chassis",
+      "upgradeSlots": [
+        { "slotId": "armor", "displayName": "Armor" },
+        { "slotId": "weapon", "displayName": "Weapon" },
+        { "slotId": "utility", "displayName": "Utility" }
+      ],
+      "craftCosts": [
+        { "materialId": "mat_scrap", "amount": 80 },
+        { "materialId": "mat_alloy", "amount": 25 }
+      ]
+    }
+  ],
+  "items": [
+    { "id": "itm_scrap_bundle", "displayName": "Scrap Bundle" },
+    { "id": "itm_alloy_bundle", "displayName": "Alloy Bundle" },
+    { "id": "itm_components_bundle", "displayName": "Components Bundle" }
+  ]
+}
+
