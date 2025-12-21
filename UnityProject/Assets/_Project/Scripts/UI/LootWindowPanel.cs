@@ -65,7 +65,7 @@ namespace Frontline.UI
             GUILayout.Label("Loot");
 
             GUILayout.Space(6);
-            GUILayout.Label($"- {_active.ItemId} x1");
+            GUILayout.Label($"- {_active.ItemId} x{Mathf.Max(1, _active.Quantity)}");
 
             GUILayout.Space(10);
             GUILayout.BeginHorizontal();
@@ -102,7 +102,7 @@ namespace Frontline.UI
             else if (id.StartsWith("mat_"))
             {
                 // Minimal support for material IDs (in case they enter DestroyedPool via dev tools).
-                PlayerInventoryService.Instance.AddResource(id, 1);
+                PlayerInventoryService.Instance.AddResource(id, Mathf.Max(1, _active.Quantity));
             }
             else
             {

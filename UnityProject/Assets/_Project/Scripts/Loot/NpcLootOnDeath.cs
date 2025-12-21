@@ -26,9 +26,10 @@ namespace Frontline.Loot
         private void OnDied(Health h)
         {
             var type = _npc != null ? _npc.NpcType : "NPC";
+            var difficulty = _npc != null ? _npc.Difficulty : NpcDifficulty.Easy;
             var pos = transform.position;
             pos.y = 0f;
-            DestroyedPoolLootRoller.TryRollAndSpawn(type, pos);
+            DestroyedPoolLootRoller.TryRollAndSpawn(type, difficulty, pos);
         }
     }
 }

@@ -5,13 +5,21 @@ namespace Frontline.Loot
     public sealed class LootPickup : MonoBehaviour
     {
         [SerializeField] private string itemId = "";
+        [SerializeField] private int quantity = 1;
 
         public string ItemId => itemId;
+        public int Quantity => Mathf.Max(1, quantity);
 
         public static LootPickup Spawn(Vector3 position, string itemId)
         {
+            return Spawn(position, itemId, 1);
+        }
+
+        public static LootPickup Spawn(Vector3 position, string itemId, int quantity)
+        {
+            var q = Mathf.Max(1, quantity);
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = $"Loot_{itemId}";
+            go.name = q > 1 ? $"Loot_{itemId}_x{q}" : $"Loot_{itemId}";
             go.transform.position = position + Vector3.up * 0.5f;
             go.transform.localScale = new Vector3(0.7f, 0.7f, 0.7f);
 
@@ -33,7 +41,7 @@ namespace Frontline.Loot
             labelGo.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
 
             var tm = labelGo.AddComponent<TextMesh>();
-            tm.text = itemId ?? "";
+            tm.text = q > 1 ? $"{itemId} x{q}" : (itemId ?? "");
             tm.characterSize = 0.12f;
             tm.anchor = TextAnchor.MiddleCenter;
             tm.alignment = TextAlignment.Center;
@@ -41,6 +49,7 @@ namespace Frontline.Loot
 
             var p = go.AddComponent<LootPickup>();
             p.itemId = itemId ?? "";
+            p.quantity = q;
             return p;
         }
     }
