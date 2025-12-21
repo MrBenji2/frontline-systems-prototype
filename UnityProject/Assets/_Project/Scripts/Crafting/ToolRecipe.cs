@@ -18,6 +18,7 @@ namespace Frontline.Crafting
         public string displayName;
         public ToolType toolType;
         public ToolTier tier;
+        public CraftingStationType stationType = CraftingStationType.Inventory;
         public int maxDurability;
         public int hitDamage;
         public List<Cost> costs = new();
