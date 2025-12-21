@@ -2,7 +2,13 @@
   "materials": [
     { "id": "mat_scrap", "displayName": "Scrap", "tier": 1 },
     { "id": "mat_alloy", "displayName": "Alloy", "tier": 2 },
-    { "id": "mat_components", "displayName": "Components", "tier": 3 }
+    { "id": "mat_components", "displayName": "Components", "tier": 3 },
+
+    { "id": "mat_wood", "displayName": "Wood", "tier": 1 },
+    { "id": "mat_stone", "displayName": "Stone", "tier": 1 },
+    { "id": "mat_iron", "displayName": "Iron", "tier": 2 },
+    { "id": "mat_coal", "displayName": "Coal", "tier": 1 },
+    { "id": "mat_diesel", "displayName": "Diesel", "tier": 2 }
   ],
   "weapons": [
     {
@@ -59,7 +65,25 @@
   "items": [
     { "id": "itm_scrap_bundle", "displayName": "Scrap Bundle" },
     { "id": "itm_alloy_bundle", "displayName": "Alloy Bundle" },
-    { "id": "itm_components_bundle", "displayName": "Components Bundle" }
+    { "id": "itm_components_bundle", "displayName": "Components Bundle" },
+
+    { "id": "tool_axe_wood", "displayName": "Wood Axe" },
+    { "id": "tool_axe_stone", "displayName": "Stone Axe" },
+    { "id": "tool_axe_iron", "displayName": "Iron Axe" },
+
+    { "id": "tool_shovel_wood", "displayName": "Wood Shovel" },
+    { "id": "tool_shovel_stone", "displayName": "Stone Shovel" },
+    { "id": "tool_shovel_iron", "displayName": "Iron Shovel" },
+
+    { "id": "tool_wrench_wood", "displayName": "Wood Wrench" },
+    { "id": "tool_wrench_stone", "displayName": "Stone Wrench" },
+    { "id": "tool_wrench_iron", "displayName": "Iron Wrench" },
+
+    { "id": "tool_hammer_wood", "displayName": "Wood Hammer" },
+    { "id": "tool_hammer_stone", "displayName": "Stone Hammer" },
+    { "id": "tool_hammer_iron", "displayName": "Iron Hammer" },
+
+    { "id": "tool_gas_can", "displayName": "Gas Can" }
   ]
 }
 
