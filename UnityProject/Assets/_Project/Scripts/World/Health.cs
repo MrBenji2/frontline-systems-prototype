@@ -39,6 +39,26 @@ namespace Frontline.World
                 Die(instigator);
         }
 
+        public void Restore(int amount)
+        {
+            if (IsDead)
+                return;
+            if (amount <= 0)
+                return;
+
+            CurrentHp = Mathf.Clamp(CurrentHp + amount, 0, maxHp);
+        }
+
+        /// <summary>
+        /// Used by local persistence to restore pre-existing damage state.
+        /// </summary>
+        public void SetCurrentHpForLoad(int currentHp)
+        {
+            if (IsDead)
+                return;
+            CurrentHp = Mathf.Clamp(currentHp, 0, maxHp);
+        }
+
         public void Kill(GameObject instigator = null)
         {
             if (IsDead)
