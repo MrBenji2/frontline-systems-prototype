@@ -1,5 +1,6 @@
 using Frontline.Harvesting;
 using Frontline.Tactical;
+using Frontline.Buildables;
 using Frontline.World;
 using UnityEngine;
 
@@ -32,6 +33,9 @@ namespace Frontline.Combat
 
         private void Update()
         {
+            if (BuildablesService.Instance != null && BuildablesService.Instance.IsInputLockedForCombatOrHarvest)
+                return;
+
             if (Input.GetMouseButton(0))
                 TryRanged();
             if (Input.GetMouseButton(1))
@@ -40,6 +44,9 @@ namespace Frontline.Combat
 
         private void OnGUI()
         {
+            if (BuildablesService.Instance != null && BuildablesService.Instance.IsInputLockedForCombatOrHarvest)
+                return;
+
             var rect = new Rect(10, Screen.height - 34, 220, 24);
             GUI.Box(rect, "");
             GUI.Label(new Rect(rect.x + 6, rect.y + 3, rect.width - 12, rect.height - 6), "Combat: LMB shoot / RMB melee");

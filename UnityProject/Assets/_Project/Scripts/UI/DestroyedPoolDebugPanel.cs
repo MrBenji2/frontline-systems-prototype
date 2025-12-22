@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Frontline.Buildables;
 using Frontline.Definitions;
 using Frontline.Economy;
 using Frontline.DebugTools;
@@ -122,6 +123,29 @@ namespace Frontline.UI
             if (GUILayout.Button("Hard Melee"))
                 DevSpawnNpcs.Spawn(NpcDifficulty.Hard, NpcAttackType.Melee, 1);
             GUILayout.EndHorizontal();
+
+            GUILayout.Space(6);
+            GUILayout.Label("Milestone 5 (Buildables):");
+            if (BuildablesService.Instance == null)
+            {
+                GUILayout.Label("BuildablesService: MISSING");
+            }
+            else
+            {
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button($"Toggle Build Mode ({(BuildablesService.Instance.IsBuildModeActive ? "ON" : "OFF")})", GUILayout.Width(220)))
+                    BuildablesService.Instance.ToggleBuildMode();
+                if (GUILayout.Button("Save World", GUILayout.Width(120)))
+                    BuildablesService.Instance.SaveWorld();
+                if (GUILayout.Button("Load World", GUILayout.Width(120)))
+                    BuildablesService.Instance.LoadWorld();
+                GUILayout.EndHorizontal();
+
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("Clear All Buildables (DEV)", GUILayout.Width(220)))
+                    BuildablesService.Instance.ClearAllBuildablesDev();
+                GUILayout.EndHorizontal();
+            }
 
             GUILayout.Space(10);
             DrawPoolTables();
