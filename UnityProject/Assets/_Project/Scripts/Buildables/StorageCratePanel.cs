@@ -61,6 +61,9 @@ namespace Frontline.Buildables
                 return;
             if (Input.GetKeyDown(KeyCode.Escape))
                 Close();
+            // Patch 2: allow E to toggle-close the crate UI.
+            if (Input.GetKeyDown(KeyCode.E))
+                Close();
         }
 
         private void OnGUI()

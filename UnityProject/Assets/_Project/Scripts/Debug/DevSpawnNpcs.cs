@@ -45,10 +45,18 @@ namespace Frontline.DebugTools
             npc.Configure(difficulty, attackType);
             go.AddComponent<NpcLootOnDeath>();
 
-            // Prevent the capsule collider from blocking fog / station interactions, but keep it hittable by combat raycasts (~0 mask).
+            // Patch 6: collision-aware NPC movement via CharacterController.
+            // Disable the primitive collider to avoid double-colliders (CharacterController provides its own).
             var col = go.GetComponent<Collider>();
             if (col != null)
-                col.isTrigger = false;
+                col.enabled = false;
+
+            var cc = go.AddComponent<CharacterController>();
+            cc.center = new Vector3(0f, 1.0f, 0f);
+            cc.height = 2.0f;
+            cc.radius = 0.45f;
+            cc.slopeLimit = 60f;
+            cc.stepOffset = 0.35f;
         }
     }
 }

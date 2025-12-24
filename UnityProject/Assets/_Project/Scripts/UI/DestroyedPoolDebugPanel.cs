@@ -8,6 +8,8 @@ using Frontline.DebugTools;
 using Frontline.Harvesting;
 using Frontline.Combat;
 using UnityEngine;
+using Frontline.Crafting;
+using Frontline.Gameplay;
 
 namespace Frontline.UI
 {
@@ -26,6 +28,12 @@ namespace Frontline.UI
         private Vector2 _scrollSalvage;
         private string _spawnDestroyId = "wpn_rifle";
         private int _spawnDestroyCount = 1;
+
+        // Patch 3: dev spawn per item (resources/tools) into player inventory.
+        private int _devSpawnSelectedIdx;
+        private string _devSpawnQtyStr = "1";
+        private Vector2 _devSpawnScroll;
+        private readonly List<string> _devSpawnIds = new();
 
         private readonly List<string> _cachedIds = new();
         private float _nextIdRefreshTime;
@@ -104,6 +112,9 @@ namespace Frontline.UI
             GUILayout.EndHorizontal();
 
             GUILayout.Space(6);
+            DrawDevSpawnInventory();
+
+            GUILayout.Space(6);
             GUILayout.Label("NPC Spawns:");
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Easy Ranged"))
@@ -152,6 +163,97 @@ namespace Frontline.UI
 
             GUILayout.EndScrollView();
             GUILayout.EndArea();
+        }
+
+        private void DrawDevSpawnInventory()
+        {
+            GUILayout.Label("Patch 5.1 Dev Spawn (per-item → Player Inventory):");
+
+            if (PlayerInventoryService.Instance == null)
+            {
+                GUILayout.Label("PlayerInventoryService: MISSING");
+                return;
+            }
+
+            EnsureDevSpawnIds();
+            if (_devSpawnIds.Count == 0)
+            {
+                GUILayout.Label("(no spawnable IDs)");
+                return;
+            }
+
+            // Quantity
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Qty", GUILayout.Width(30));
+            _devSpawnQtyStr = GUILayout.TextField(_devSpawnQtyStr, GUILayout.Width(60));
+            if (!int.TryParse(_devSpawnQtyStr, out var qty))
+                qty = 1;
+            qty = Mathf.Clamp(qty, 1, 999);
+
+            var selectedId = _devSpawnIds[Mathf.Clamp(_devSpawnSelectedIdx, 0, _devSpawnIds.Count - 1)];
+            if (GUILayout.Button($"Spawn {selectedId} x{qty}", GUILayout.Width(220)))
+            {
+                SpawnToInventory(selectedId, qty);
+                SelectionUIState.SetSelected($"Selected: {selectedId} x{qty}");
+            }
+            GUILayout.EndHorizontal();
+
+            // List
+            _devSpawnScroll = GUILayout.BeginScrollView(_devSpawnScroll, GUILayout.Height(120));
+            var newIdx = GUILayout.SelectionGrid(_devSpawnSelectedIdx, _devSpawnIds.ToArray(), 1);
+            if (newIdx != _devSpawnSelectedIdx)
+            {
+                _devSpawnSelectedIdx = newIdx;
+                var id = _devSpawnIds[Mathf.Clamp(_devSpawnSelectedIdx, 0, _devSpawnIds.Count - 1)];
+                SelectionUIState.SetSelected($"Selected: {id}");
+            }
+            GUILayout.EndScrollView();
+        }
+
+        private void EnsureDevSpawnIds()
+        {
+            if (_devSpawnIds.Count > 0)
+                return;
+
+            // Resources first (common debug case), then tools.
+            _devSpawnIds.AddRange(new[]
+            {
+                ToolRecipes.Wood,
+                ToolRecipes.Stone,
+                ToolRecipes.Iron,
+                ToolRecipes.Coal,
+                ToolRecipes.Diesel
+            });
+
+            foreach (var r in ToolRecipes.All)
+            {
+                if (r == null || string.IsNullOrWhiteSpace(r.itemId))
+                    continue;
+                _devSpawnIds.Add(r.itemId);
+            }
+        }
+
+        private static void SpawnToInventory(string itemId, int qty)
+        {
+            if (PlayerInventoryService.Instance == null)
+                return;
+            qty = Mathf.Clamp(qty, 1, 999);
+
+            var recipe = ToolRecipes.Get(itemId);
+            if (recipe != null)
+            {
+                for (var i = 0; i < qty; i++)
+                    PlayerInventoryService.Instance.AddTool(recipe.itemId, recipe.maxDurability, recipe.toolType, recipe.tier, recipe.hitDamage);
+                return;
+            }
+
+            if (itemId != null && itemId.StartsWith("mat_"))
+            {
+                PlayerInventoryService.Instance.AddResource(itemId, qty);
+                return;
+            }
+
+            Debug.LogWarning($"DevSpawn: '{itemId}' not supported (ignored).");
         }
 
         private void DrawPoolTables()

@@ -19,6 +19,11 @@ namespace Frontline.Tactical
         [SerializeField] private int resolution = 128;
 
         [Header("Vision")]
+        // Patch 9: widen reveal and prep future aim mode.
+        [SerializeField] private float defaultRevealRadius = 35f;
+        [SerializeField] private float aimRevealRadius = 22f; // not used yet
+
+        // Legacy field kept for backwards compatibility with existing scenes/prefabs.
         [SerializeField] private float visibleRadius = 18f;
         [SerializeField] private float eyeHeight = 1.6f;
         [SerializeField] private float sampleHeight = 0.7f;
@@ -58,6 +63,12 @@ namespace Frontline.Tactical
         {
             resolution = Mathf.Clamp(resolution, 32, 512);
             visibleRadius = Mathf.Max(1f, visibleRadius);
+            defaultRevealRadius = Mathf.Max(1f, defaultRevealRadius);
+            aimRevealRadius = Mathf.Max(1f, aimRevealRadius);
+
+            // If the new field hasn't been set yet, migrate from legacy.
+            if (defaultRevealRadius <= 1.01f && visibleRadius > 1.01f)
+                defaultRevealRadius = visibleRadius;
         }
 
         private void Update()
@@ -112,7 +123,8 @@ namespace Frontline.Tactical
             var playerPos = target.position;
             var origin = playerPos + Vector3.up * eyeHeight;
 
-            var r2 = visibleRadius * visibleRadius;
+            var radius = defaultRevealRadius > 0.01f ? defaultRevealRadius : visibleRadius;
+            var r2 = radius * radius;
             var min = worldMin;
             var max = worldMax;
             var size = max - min;
