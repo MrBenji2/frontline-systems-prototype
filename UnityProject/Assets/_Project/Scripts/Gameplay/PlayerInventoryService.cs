@@ -72,6 +72,22 @@ namespace Frontline.Gameplay
             Changed?.Invoke();
         }
 
+        public bool TryRemoveResource(string resourceId, int amount)
+        {
+            if (string.IsNullOrWhiteSpace(resourceId))
+                return false;
+            if (amount <= 0)
+                return false;
+
+            var have = GetResource(resourceId);
+            if (have < amount)
+                return false;
+
+            _resources[resourceId] = Mathf.Max(0, have - amount);
+            Changed?.Invoke();
+            return true;
+        }
+
         public bool CanAfford(IEnumerable<ToolRecipe.Cost> costs)
         {
             if (costs == null)

@@ -45,7 +45,12 @@
   ],
   "structures": [
     { "id": "str_sandbags", "displayName": "Sandbags", "craftCosts": [{ "materialId": "mat_scrap", "amount": 10 }] },
-    { "id": "str_watchtower", "displayName": "Watchtower", "craftCosts": [{ "materialId": "mat_scrap", "amount": 35 }, { "materialId": "mat_alloy", "amount": 5 }] }
+    { "id": "str_watchtower", "displayName": "Watchtower", "craftCosts": [{ "materialId": "mat_scrap", "amount": 35 }, { "materialId": "mat_alloy", "amount": 5 }] },
+
+    { "id": "build_foundation", "displayName": "Foundation", "craftCosts": [{ "materialId": "mat_wood", "amount": 6 }] },
+    { "id": "build_wall", "displayName": "Wall", "craftCosts": [{ "materialId": "mat_wood", "amount": 4 }] },
+    { "id": "build_gate", "displayName": "Gate", "craftCosts": [{ "materialId": "mat_wood", "amount": 6 }, { "materialId": "mat_iron", "amount": 2 }] },
+    { "id": "build_storage", "displayName": "Storage Crate", "craftCosts": [{ "materialId": "mat_wood", "amount": 8 }] }
   ],
   "vehicles": [
     {

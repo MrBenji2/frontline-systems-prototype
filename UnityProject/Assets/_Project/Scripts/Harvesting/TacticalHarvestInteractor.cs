@@ -1,4 +1,5 @@
 using Frontline.Crafting;
+using Frontline.Buildables;
 using Frontline.Gameplay;
 using UnityEngine;
 
@@ -19,6 +20,9 @@ namespace Frontline.Harvesting
 
         private void Update()
         {
+            if (BuildablesService.Instance != null && BuildablesService.Instance.IsInputLockedForCombatOrHarvest)
+                return;
+
             HandleHotkeys();
 
             if (!Input.GetMouseButton(0))

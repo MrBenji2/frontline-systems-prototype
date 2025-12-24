@@ -37,6 +37,7 @@ Fog-of-war uses LOS raycasts against obstacles (Default layer). The test map spa
 - **LMB**: ranged attack (only when not harvesting a `HarvestNode` under cursor)
 - **RMB**: melee attack
 - **Esc**: close station/loot windows
+ - **B**: Build Mode (Milestone 5)
 
 ### Phase 0 (UI-only patch)
 
@@ -101,3 +102,49 @@ Logging:
 4) **Seed pool loot**:
    - Craft a tool, then break it (DestroyedPool increments)
    - Kill an NPC → loot drops from eligible items only; pool decrements; log updates
+
+## Milestone 5: buildables v1 (placement + repair + destruction + storage + persistence)
+
+### Controls (TacticalTest)
+
+- **B**: toggle Build Mode (combat/harvest are disabled while in build mode)
+- **Build Mode**:
+  - **1** Foundation, **2** Wall, **3** Gate, **4** Storage Crate
+  - **R** rotate (90° steps)
+  - **LMB** place (only when preview is green + you can afford the cost)
+  - **RMB** or **Esc** exit build mode
+- **Repair**:
+  - Equip **Hammer** (hotkey **4**)
+  - Hold **LMB** on a damaged buildable to repair in small ticks (consumes small resources per tick)
+- **Storage Crate**:
+  - **E** within ~**1.5m** to open crate UI
+  - Use **Transfer All** buttons to move resources in/out
+
+### Persistence (local)
+
+- World buildables save to:
+  - `Application.persistentDataPath/buildables_world.json`
+- Save triggers:
+  - placement, repair, destruction, crate transfers
+- Manual debug actions:
+  - **F1** → “Milestone 5 (Buildables)” → **Save World / Load World / Clear All Buildables**
+
+### Quick verification checklist
+
+1) **Placement + economy**:
+   - Press **B**, select **1** (Foundation), place it (LMB)
+   - Verify resources are deducted and **CreatedPool** increments for `build_foundation`
+2) **Damage + destruction**:
+   - Place a **Wall** (2), then destroy it with player attacks
+   - Verify **DestroyedPool** increments for `build_wall`
+3) **Repair**:
+   - Damage a buildable, equip **Hammer** (4), hold **LMB** to repair
+   - Verify resources are consumed and HP increases up to Max HP
+4) **Storage destruction accounting**:
+   - Place **Storage Crate** (4), transfer some `mat_*` resources into it
+   - Destroy the crate
+   - Verify `build_storage` is registered destroyed, and stored materials are also registered destroyed (no world drops)
+5) **Persistence**:
+   - Place multiple buildables, press **F1** → **Save World**
+   - Stop Play, press Play again, then **F1** → **Load World**
+   - Verify buildables reappear at correct positions/rotations with correct HP (and crate contents if used)
