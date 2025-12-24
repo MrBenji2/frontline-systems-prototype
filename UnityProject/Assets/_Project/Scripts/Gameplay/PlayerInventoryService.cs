@@ -9,6 +9,9 @@ namespace Frontline.Gameplay
 {
     public sealed class PlayerInventoryService : MonoBehaviour
     {
+        // Patch 7B: repairing tools/weapons costs a fraction of craft cost.
+        public const float REPAIR_FRACTION = 0.25f;
+
         [Serializable]
         public sealed class ToolInstance
         {
@@ -206,6 +209,53 @@ namespace Frontline.Gameplay
             }
 
             BreakTool(t);
+            return true;
+        }
+
+        /// <summary>
+        /// Patch 7B: Repairs a tool back to max durability at fractional recipe cost:
+        /// cost = craftCost * REPAIR_FRACTION * missingPercent (per resource, rounded up).
+        /// </summary>
+        public bool TryRepairTool(int toolIndex, float repairFraction = REPAIR_FRACTION)
+        {
+            if (toolIndex < 0 || toolIndex >= _tools.Count)
+                return false;
+
+            var t = _tools[toolIndex];
+            if (t == null)
+                return false;
+
+            var max = Mathf.Max(1, t.maxDurability);
+            var cur = Mathf.Clamp(t.currentDurability, 0, max);
+            if (cur >= max)
+                return false; // nothing to repair
+
+            var recipe = ToolRecipes.Get(t.itemId);
+            if (recipe == null || recipe.costs == null || recipe.costs.Count == 0)
+                return false;
+
+            repairFraction = Mathf.Clamp01(repairFraction);
+            var missingPercent = (max - cur) / (float)max;
+            if (missingPercent <= 0.0001f)
+                return false;
+
+            // Compute repair costs.
+            var costs = new List<ToolRecipe.Cost>();
+            foreach (var c in recipe.costs)
+            {
+                if (string.IsNullOrWhiteSpace(c.resourceId) || c.amount <= 0)
+                    continue;
+                var amt = Mathf.CeilToInt(c.amount * repairFraction * missingPercent);
+                if (amt > 0)
+                    costs.Add(new ToolRecipe.Cost { resourceId = c.resourceId, amount = amt });
+            }
+
+            if (!CanAfford(costs))
+                return false;
+
+            Spend(costs);
+            t.currentDurability = max;
+            Changed?.Invoke();
             return true;
         }
 

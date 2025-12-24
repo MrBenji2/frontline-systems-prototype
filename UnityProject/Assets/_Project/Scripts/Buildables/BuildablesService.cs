@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Frontline.Core;
 using Frontline.Crafting;
 using Frontline.Definitions;
 using Frontline.Economy;
 using Frontline.Gameplay;
 using Frontline.Tactical;
+using Frontline.UI;
 using Frontline.World;
 using UnityEngine;
 
@@ -40,6 +42,7 @@ namespace Frontline.Buildables
         private bool _buildMode;
         private string _selectedItemId = "build_foundation";
         private int _rotationSteps;
+        private int _heightLevel;
 
         private GameObject _preview;
         private Renderer _previewRenderer;
@@ -47,6 +50,7 @@ namespace Frontline.Buildables
         private Vector3 _previewPos;
         private Quaternion _previewRot = Quaternion.identity;
         private bool _previewValid;
+        private bool _previewSupported;
 
         private float _nextRepairTime;
 
@@ -59,6 +63,7 @@ namespace Frontline.Buildables
 
         public bool IsBuildModeActive => _buildMode;
         public bool IsInputLockedForCombatOrHarvest => _buildMode || (StorageCratePanel.Instance != null && StorageCratePanel.Instance.IsOpen);
+        public string SelectedBuildItemId => _selectedItemId;
 
         public void ToggleBuildMode()
         {
@@ -78,6 +83,9 @@ namespace Frontline.Buildables
 
             Instance = this;
             DontDestroyOnLoad(gameObject);
+
+            // Patch 6: ensure buildables can block player/NPC movement even if they use IgnoreRaycast layer (2).
+            Physics.IgnoreLayerCollision(0, 2, false);
         }
 
         private void Update()
@@ -121,6 +129,13 @@ namespace Frontline.Buildables
             if (Input.GetKeyDown(KeyCode.R))
                 _rotationSteps = (_rotationSteps + 1) % 4;
 
+            // Height stacking (mouse wheel).
+            var wheel = Input.mouseScrollDelta.y;
+            if (Mathf.Abs(wheel) > 0.01f)
+            {
+                _heightLevel = Mathf.Max(0, _heightLevel + (wheel > 0 ? 1 : -1));
+            }
+
             UpdatePreview();
 
             if (Input.GetMouseButtonDown(0) && _previewValid)
@@ -129,15 +144,69 @@ namespace Frontline.Buildables
 
         private void OnGUI()
         {
-            var rect = new Rect(10, Screen.height - 58, 320, 48);
-            GUI.Box(rect, "");
+            // Draw HUD only once per frame (Repaint) to avoid IMGUI multi-event overlap.
+            if (Event.current == null || Event.current.type != EventType.Repaint)
+                return;
+
+            DrawHelpBottomLeft();
+            DrawSelectedBottomRight();
+        }
+
+        private void DrawHelpBottomLeft()
+        {
+            const int pad = 12;
+            const int width = 420;
+            const int height = 90;
+            var rect = new Rect(pad, Screen.height - height - pad, width, height);
+
+            var style = new GUIStyle(GUI.skin.box)
+            {
+                padding = new RectOffset(10, 10, 8, 8)
+            };
+            GUI.Box(rect, "", style);
+
+            var labelStyle = new GUIStyle(GUI.skin.label)
+            {
+                wordWrap = true
+            };
 
             var mode = _buildMode ? "Build" : "Combat/Harvest";
-            GUI.Label(new Rect(rect.x + 6, rect.y + 5, rect.width - 12, 18), $"Mode: {mode}");
-            GUI.Label(new Rect(rect.x + 6, rect.y + 24, rect.width - 12, 18),
+            var lines =
                 _buildMode
-                    ? $"Build: 1 Foundation / 2 Wall / 3 Gate / 4 Storage | R rotate | LMB place | RMB/Esc exit"
-                    : $"B: Build Mode | Hammer+LMB: Repair | E: Open Storage Crate");
+                    ? $"Mode: {mode}\n" +
+                      $"Keys: 1 Foundation | 2 Wall | 3 Gate | 4 Storage\n" +
+                      $"R rotate | MouseWheel height ({_heightLevel}) | LMB place | RMB/Esc exit"
+                    : $"Mode: {mode}\n" +
+                      $"B: Build Mode\n" +
+                      $"Hammer+LMB: Repair | E: Open/Close Storage Crate | Esc: Close UI";
+
+            GUI.Label(new Rect(rect.x + 10, rect.y + 8, rect.width - 20, rect.height - 16), lines, labelStyle);
+        }
+
+        private void DrawSelectedBottomRight()
+        {
+            var selected = SelectionUIState.SelectedText;
+            if (string.IsNullOrWhiteSpace(selected))
+            {
+                // Default to build selection when in build mode.
+                if (_buildMode && !string.IsNullOrWhiteSpace(_selectedItemId))
+                    selected = $"Selected: {_selectedItemId}";
+            }
+
+            if (string.IsNullOrWhiteSpace(selected))
+                return;
+
+            const int pad = 12;
+            const int width = 360;
+            const int height = 34;
+            var rect = new Rect(Screen.width - width - pad, Screen.height - height - pad, width, height);
+
+            var style = new GUIStyle(GUI.skin.box)
+            {
+                padding = new RectOffset(10, 10, 7, 7)
+            };
+            GUI.Box(rect, "");
+            GUI.Label(new Rect(rect.x + 10, rect.y + 7, rect.width - 20, rect.height - 14), selected);
         }
 
         public void MarkDirty()
@@ -261,6 +330,7 @@ namespace Frontline.Buildables
         private void EnterBuildMode()
         {
             _buildMode = true;
+            SelectionUIState.SetSelected(string.IsNullOrWhiteSpace(_selectedItemId) ? "" : $"Selected: {_selectedItemId}");
             EnsurePreview();
         }
 
@@ -274,6 +344,8 @@ namespace Frontline.Buildables
         {
             _selectedItemId = itemId ?? "";
             _rotationSteps = 0;
+            _heightLevel = 0;
+            SelectionUIState.SetSelected(string.IsNullOrWhiteSpace(_selectedItemId) ? "" : $"Selected: {_selectedItemId}");
             EnsurePreview();
         }
 
@@ -328,7 +400,7 @@ namespace Frontline.Buildables
             if (_preview == null)
                 return;
 
-            if (!TryGetMouseWorld(out var p))
+            if (!TryGetMouseWorld(out var p, out var supportTopY, out _previewSupported))
                 return;
 
             var snap = Mathf.Max(0.25f, gridSizeMeters);
@@ -336,14 +408,29 @@ namespace Frontline.Buildables
             p.z = Mathf.Round(p.z / snap) * snap;
 
             GetShape(_selectedItemId, out var scale, out _);
-            p.y = scale.y * 0.5f;
+            var halfY = scale.y * 0.5f;
+
+            // Re-sample support at snapped XZ to prevent "floaty" snap.
+            if (TryGetSupportTopYAt(p.x, p.z, out var snappedSupportTopY))
+            {
+                supportTopY = snappedSupportTopY;
+                _previewSupported = true;
+            }
+            else
+            {
+                _previewSupported = false;
+            }
+
+            // Place bottom of buildable on top of support surface, plus optional height levels.
+            var bottomY = supportTopY + (_heightLevel * WorldConstants.WORLD_LEVEL_HEIGHT);
+            p.y = bottomY + halfY;
 
             _previewPos = p;
             _previewRot = Quaternion.Euler(0f, 90f * _rotationSteps, 0f);
 
             _preview.transform.SetPositionAndRotation(_previewPos, _previewRot);
 
-            _previewValid = IsPlacementValid(_selectedItemId, _previewPos, _previewRot);
+            _previewValid = _previewSupported && IsPlacementValid(_selectedItemId, _previewPos, _previewRot);
 
             if (_previewMaterial != null)
             {
@@ -394,12 +481,20 @@ namespace Frontline.Buildables
             go.name = itemId;
             go.transform.SetPositionAndRotation(pos, rot);
             go.transform.localScale = scale;
+            go.layer = 0; // Default: blocks movement + participates in occlusion and raycasts.
+
+            var col = go.GetComponent<Collider>();
+            if (col != null)
+            {
+                col.enabled = true;
+                col.isTrigger = false;
+            }
 
             var r = go.GetComponent<Renderer>();
             if (r != null)
             {
-                r.material = new Material(Shader.Find("Standard"));
-                r.material.color = tint;
+                // Placeholder visuals: prefer stable, reusable materials (no gray primitives).
+                r.material = GetPlaceholderMaterialForBuildable(itemId, tint);
             }
 
             var buildable = go.AddComponent<Buildable>();
@@ -415,6 +510,40 @@ namespace Frontline.Buildables
             }
 
             return go;
+        }
+
+        private static Material _matWood;
+        private static Material _matStone;
+        private static Material _matMetal;
+
+        private static Material GetPlaceholderMaterialForBuildable(string itemId, Color fallbackTint)
+        {
+            // Runtime placeholder materials (verifiable in Play Mode).
+            // Editor assets are generated separately (see placeholder art patch).
+            var shader = Shader.Find("Standard");
+            if (shader == null)
+            {
+                var m = new Material(Shader.Find("Diffuse"));
+                m.color = fallbackTint;
+                return m;
+            }
+
+            _matWood ??= MakeMat(shader, new Color(0.53f, 0.34f, 0.18f));
+            _matStone ??= MakeMat(shader, new Color(0.55f, 0.55f, 0.58f));
+            _matMetal ??= MakeMat(shader, new Color(0.55f, 0.62f, 0.68f));
+
+            if (itemId == "build_foundation")
+                return _matStone;
+            if (itemId == "build_wall" || itemId == "build_gate" || itemId == "build_storage")
+                return _matWood;
+            return _matMetal;
+        }
+
+        private static Material MakeMat(Shader shader, Color c)
+        {
+            var m = new Material(shader);
+            m.color = c;
+            return m;
         }
 
         private void OnBuildableDied(Buildable b)
@@ -558,7 +687,7 @@ namespace Frontline.Buildables
             half.y = Mathf.Max(0.1f, half.y);
 
             // Check for blocking colliders (ignore triggers and non-gameplay colliders).
-            var hits = Physics.OverlapBox(pos, half * 0.95f, rot, ~0, QueryTriggerInteraction.Ignore);
+            var hits = Physics.OverlapBox(pos, half * 0.90f, rot, ~0, QueryTriggerInteraction.Ignore);
             foreach (var c in hits)
             {
                 if (c == null)
@@ -581,9 +710,11 @@ namespace Frontline.Buildables
             return true;
         }
 
-        private bool TryGetMouseWorld(out Vector3 point)
+        private bool TryGetMouseWorld(out Vector3 point, out float supportTopY, out bool supported)
         {
             point = Vector3.zero;
+            supportTopY = 0f;
+            supported = false;
             var cam = Camera.main;
             if (cam == null)
                 return false;
@@ -592,7 +723,9 @@ namespace Frontline.Buildables
             if (Physics.Raycast(ray, out var hit, placementRayDistance, ~0, QueryTriggerInteraction.Ignore))
             {
                 point = hit.point;
-                point.y = 0f;
+                // Initial support comes from the raycast hit surface.
+                supportTopY = hit.collider != null ? hit.collider.bounds.max.y : hit.point.y;
+                supported = hit.collider != null;
                 return true;
             }
 
@@ -601,11 +734,28 @@ namespace Frontline.Buildables
             if (plane.Raycast(ray, out var enter))
             {
                 point = ray.GetPoint(enter);
-                point.y = 0f;
+                supportTopY = 0f;
+                supported = true;
                 return true;
             }
 
             return false;
+        }
+
+        private bool TryGetSupportTopYAt(float x, float z, out float topY)
+        {
+            topY = 0f;
+
+            // Raycast straight down from above to find the topmost support surface at XZ.
+            // Reject triggers to prevent "floating" support (harvest nodes use triggers).
+            var origin = new Vector3(x, 1000f, z);
+            if (!Physics.Raycast(origin, Vector3.down, out var hit, 2000f, ~0, QueryTriggerInteraction.Ignore))
+                return false;
+            if (hit.collider == null || hit.collider.isTrigger)
+                return false;
+
+            topY = hit.collider.bounds.max.y;
+            return true;
         }
 
         private static int GetMaxHp(string itemId)

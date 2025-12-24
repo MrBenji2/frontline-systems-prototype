@@ -49,21 +49,54 @@ namespace Frontline.Harvesting
 
         /// <summary>
         /// Applies a harvesting hit. Returns true only if the hit was valid (right tool + damage applied).
-        /// Wrong tool => no damage, no yield, no durability loss.
+        /// Patch 7A: wrong tools may still work but slower (tree/ground only).
         /// </summary>
         public bool ApplyHarvestHit(ToolType toolType, int damage, Vector3 hitPoint)
         {
             if (IsDead)
                 return false;
-            if (toolType != requiredTool)
-                return false;
             if (damage <= 0)
                 return false;
 
-            CurrentHp = Mathf.Max(0, CurrentHp - damage);
+            var eff = GetEffectiveness(requiredTool, toolType);
+            if (eff <= 0.0001f)
+                return false;
+
+            var scaled = Mathf.Max(1, Mathf.RoundToInt(damage * eff));
+
+            CurrentHp = Mathf.Max(0, CurrentHp - scaled);
             if (CurrentHp == 0)
                 Die(hitPoint);
             return true;
+        }
+
+        private static float GetEffectiveness(ToolType required, ToolType used)
+        {
+            if (used == ToolType.None)
+                return 0f;
+            if (used == required)
+                return 1.0f;
+
+            // Patch 7A scope:
+            // - Axe nodes represent Trees.
+            // - Shovel nodes represent Dig/Ground (stone/soil).
+            if (required == ToolType.Axe)
+            {
+                if (used == ToolType.Shovel) return 0.35f;
+                if (used == ToolType.Wrench) return 0.20f;
+                return 0.0f;
+            }
+
+            if (required == ToolType.Shovel)
+            {
+                if (used == ToolType.Wrench) return 0.35f;
+                // Spec does not define Axe vs ground; allow slow use.
+                if (used == ToolType.Axe) return 0.35f;
+                return 0.0f;
+            }
+
+            // Keep strict requirements for other node types (hammer, gas can, etc.).
+            return 0.0f;
         }
 
         private void Die(Vector3 hitPoint)

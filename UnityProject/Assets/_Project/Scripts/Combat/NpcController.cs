@@ -17,6 +17,9 @@ namespace Frontline.Combat
 
         private Health _health;
         private float _nextAttackTime;
+        private CharacterController _cc;
+        private Vector3 _ccVelocity;
+        private const float Gravity = 20f;
 
         public string NpcType => npcType;
         public NpcDifficulty Difficulty => difficulty;
@@ -25,6 +28,7 @@ namespace Frontline.Combat
         private void Awake()
         {
             _health = GetComponent<Health>();
+            _cc = GetComponent<CharacterController>();
         }
 
         public void Configure(NpcDifficulty d, NpcAttackType t)
@@ -88,7 +92,25 @@ namespace Frontline.Combat
                 var step = _moveSpeed * Time.deltaTime;
                 var next = Vector3.MoveTowards(myPos, playerPos, step);
                 next.y = transform.position.y;
-                transform.position = next;
+
+                // Patch 6: if a CharacterController exists, use it for collision-aware movement.
+                if (_cc != null)
+                {
+                    var delta = next - transform.position;
+                    if (_cc.isGrounded)
+                        _ccVelocity.y = -1f;
+                    else
+                        _ccVelocity.y -= Gravity * Time.deltaTime;
+
+                    // Keep horizontal move from the AI step.
+                    _ccVelocity.x = delta.x / Mathf.Max(0.0001f, Time.deltaTime);
+                    _ccVelocity.z = delta.z / Mathf.Max(0.0001f, Time.deltaTime);
+                    _cc.Move(new Vector3(delta.x, _ccVelocity.y * Time.deltaTime, delta.z));
+                }
+                else
+                {
+                    transform.position = next;
+                }
             }
 
             // Face/aim toward player.

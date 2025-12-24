@@ -134,9 +134,52 @@ namespace Frontline.UI
                 GUILayout.Label($"{t.currentDurability}/{t.maxDurability}", GUILayout.Width(90));
                 if (GUILayout.Button("Equip", GUILayout.Width(80)))
                     inv.EquipIndex(i);
+
+                // Patch 7B: repair tool/weapon durability.
+                var repairInfo = GetRepairInfo(t);
+                var prev = GUI.enabled;
+                GUI.enabled = repairInfo.canRepair && repairInfo.canAfford;
+                if (GUILayout.Button("Repair", GUILayout.Width(70)))
+                    inv.TryRepairTool(i);
+                GUI.enabled = prev;
                 GUILayout.EndHorizontal();
+
+                if (repairInfo.canRepair)
+                    GUILayout.Label($"   Repair cost: {repairInfo.costString}");
             }
             GUILayout.EndScrollView();
+        }
+
+        private static (bool canRepair, bool canAfford, string costString) GetRepairInfo(PlayerInventoryService.ToolInstance t)
+        {
+            if (PlayerInventoryService.Instance == null || t == null)
+                return (false, false, "");
+
+            var max = Mathf.Max(1, t.maxDurability);
+            var cur = Mathf.Clamp(t.currentDurability, 0, max);
+            if (cur >= max)
+                return (false, true, ""); // already full
+
+            var recipe = ToolRecipes.Get(t.itemId);
+            if (recipe == null || recipe.costs == null || recipe.costs.Count == 0)
+                return (false, false, "(no recipe)");
+
+            var inv = PlayerInventoryService.Instance;
+            var missingPercent = (max - cur) / (float)max;
+
+            var costs = new List<ToolRecipe.Cost>();
+            foreach (var c in recipe.costs)
+            {
+                if (string.IsNullOrWhiteSpace(c.resourceId) || c.amount <= 0)
+                    continue;
+                var amt = Mathf.CeilToInt(c.amount * PlayerInventoryService.REPAIR_FRACTION * missingPercent);
+                if (amt > 0)
+                    costs.Add(new ToolRecipe.Cost { resourceId = c.resourceId, amount = amt });
+            }
+
+            var costStr = costs.Count == 0 ? "(free)" : string.Join(", ", costs.Select(c => $"{c.amount} {c.resourceId}"));
+            var canAfford = inv.CanAfford(costs);
+            return (true, canAfford, costStr);
         }
 
         private void DrawCrafting()
