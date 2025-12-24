@@ -13,6 +13,8 @@ namespace Frontline.UI
     /// </summary>
     public sealed class CraftingStationPanel : MonoBehaviour
     {
+        private const string ModalId = "crafting_station";
+
         public static CraftingStationPanel Instance { get; private set; }
 
         [SerializeField] private bool visible;
@@ -39,20 +41,25 @@ namespace Frontline.UI
             _activeStation = station;
             visible = station != null;
             _scroll = Vector2.zero;
+
+            if (visible && UiModalManager.Instance != null)
+                UiModalManager.Instance.RegisterOpen(ModalId, Close, openedByInteract: true);
         }
 
         public void Close()
         {
             visible = false;
             _activeStation = null;
+
+            if (UiModalManager.Instance != null)
+                UiModalManager.Instance.RegisterClosed(ModalId);
         }
 
         private void Update()
         {
             if (!IsOpen)
                 return;
-            if (Input.GetKeyDown(KeyCode.Escape))
-                Close();
+            // Universal close rules are handled by UiModalManager.
         }
 
         private void OnGUI()

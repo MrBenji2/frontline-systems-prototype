@@ -19,7 +19,8 @@ namespace Frontline.Gameplay
 
         private void Update()
         {
-            if (CraftingStationPanel.Instance != null && CraftingStationPanel.Instance.IsOpen)
+            // If any gameplay modal is open, interaction should not open another.
+            if (UiModalManager.Instance != null && UiModalManager.Instance.HasOpenModal)
                 return;
 
             _nearest = FindNearestStation();
@@ -28,14 +29,29 @@ namespace Frontline.Gameplay
 
             if (Input.GetKeyDown(useKey))
             {
-                if (CraftingStationPanel.Instance != null)
-                    CraftingStationPanel.Instance.Open(_nearest);
+                if (CraftingStationPanel.Instance == null)
+                    return;
+
+                if (UiModalManager.Instance != null)
+                {
+                    UiModalManager.Instance.TryToggleInteractModal(
+                        modalId: "crafting_station",
+                        tryOpen: () =>
+                        {
+                            CraftingStationPanel.Instance.Open(_nearest);
+                            return CraftingStationPanel.Instance.IsOpen;
+                        },
+                        closeAction: CraftingStationPanel.Instance.Close);
+                    return;
+                }
+
+                CraftingStationPanel.Instance.Open(_nearest);
             }
         }
 
         private void OnGUI()
         {
-            if (CraftingStationPanel.Instance != null && CraftingStationPanel.Instance.IsOpen)
+            if (UiModalManager.Instance != null && UiModalManager.Instance.HasOpenModal)
                 return;
 
             if (_nearest == null)

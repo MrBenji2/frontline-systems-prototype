@@ -565,6 +565,10 @@ namespace Frontline.Buildables
             if (!Input.GetKeyDown(KeyCode.E))
                 return;
 
+            // Patch 5.2: if an interact-opened modal is open, E should close it (handled centrally).
+            if (UiModalManager.Instance != null && UiModalManager.Instance.HasOpenModal)
+                return;
+
             if (_player == null || Camera.main == null)
                 return;
 
@@ -583,8 +587,23 @@ namespace Frontline.Buildables
             if (Vector3.Distance(p, h) > 1.5f)
                 return;
 
-            if (StorageCratePanel.Instance != null)
-                StorageCratePanel.Instance.Open(crate);
+            if (StorageCratePanel.Instance == null)
+                return;
+
+            if (UiModalManager.Instance != null)
+            {
+                UiModalManager.Instance.TryToggleInteractModal(
+                    modalId: "storage_crate",
+                    tryOpen: () =>
+                    {
+                        StorageCratePanel.Instance.Open(crate);
+                        return StorageCratePanel.Instance.IsOpen;
+                    },
+                    closeAction: StorageCratePanel.Instance.Close);
+                return;
+            }
+
+            StorageCratePanel.Instance.Open(crate);
         }
 
         private void HandleRepair()
