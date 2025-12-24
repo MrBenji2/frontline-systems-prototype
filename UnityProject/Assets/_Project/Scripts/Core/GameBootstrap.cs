@@ -16,6 +16,7 @@ namespace Frontline.Core
             EnsureSingletonGO<CreatedPoolService>("_CreatedPool");
             EnsureSingletonGO<SalvagePoolService>("_SalvagePool");
             EnsureSingletonGO<PlayerInventoryService>("_PlayerInventory");
+            EnsureSingletonGO<PlayerSkillsService>("_PlayerSkills");
             EnsureSingletonGO<DestroyedPoolDebugPanel>("_DestroyedPoolDebugPanel");
             EnsureSingletonGO<InventoryCraftingPanel>("_InventoryCraftingPanel");
             EnsureSingletonGO<UiModalManager>("_UiModalManager");

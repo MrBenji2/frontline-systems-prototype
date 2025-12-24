@@ -1,11 +1,14 @@
 using System;
 using UnityEngine;
+using Frontline.UI;
 
 namespace Frontline.World
 {
     public sealed class Health : MonoBehaviour
     {
         public event Action<Health> Died;
+        public event Action<Health> Changed;
+        public event Action<Health, int> Damaged;
 
         [SerializeField] private int maxHp = 100;
         [SerializeField] private bool destroyGameObjectOnDeath = true;
@@ -25,6 +28,7 @@ namespace Frontline.World
             destroyGameObjectOnDeath = destroyOnDeath;
             CurrentHp = maxHp;
             IsDead = false;
+            Changed?.Invoke(this);
         }
 
         public void ApplyDamage(int amount, GameObject instigator = null)
@@ -35,6 +39,14 @@ namespace Frontline.World
                 return;
 
             CurrentHp = Mathf.Max(0, CurrentHp - amount);
+            Damaged?.Invoke(this, amount);
+            Changed?.Invoke(this);
+
+            // Patch 5.2: damage feedback numbers.
+            // Spawn at object center + small offset (hit-point not available at this layer yet).
+            var pos = transform.position + Vector3.up * 1.2f;
+            DamageNumber.Spawn(pos, amount);
+
             if (CurrentHp == 0)
                 Die(instigator);
         }
@@ -47,6 +59,7 @@ namespace Frontline.World
                 return;
 
             CurrentHp = Mathf.Clamp(CurrentHp + amount, 0, maxHp);
+            Changed?.Invoke(this);
         }
 
         /// <summary>
@@ -57,6 +70,7 @@ namespace Frontline.World
             if (IsDead)
                 return;
             CurrentHp = Mathf.Clamp(currentHp, 0, maxHp);
+            Changed?.Invoke(this);
         }
 
         public void Kill(GameObject instigator = null)

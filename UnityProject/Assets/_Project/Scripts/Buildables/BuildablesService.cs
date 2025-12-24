@@ -62,7 +62,10 @@ namespace Frontline.Buildables
         private string SavePath => Path.Combine(Application.persistentDataPath, "buildables_world.json");
 
         public bool IsBuildModeActive => _buildMode;
-        public bool IsInputLockedForCombatOrHarvest => _buildMode || (StorageCratePanel.Instance != null && StorageCratePanel.Instance.IsOpen);
+        public bool IsInputLockedForCombatOrHarvest =>
+            _buildMode
+            || (UiModalManager.Instance != null && UiModalManager.Instance.HasOpenModal)
+            || (StorageCratePanel.Instance != null && StorageCratePanel.Instance.IsOpen);
         public string SelectedBuildItemId => _selectedItemId;
 
         public void ToggleBuildMode()
@@ -449,7 +452,54 @@ namespace Frontline.Buildables
             if (go == null)
                 return;
 
+            // Patch 5.2: settle buildables vertically to eliminate occasional floating.
+            StartCoroutine(SettlePlacedBuildable(go));
+
             MarkDirty();
+        }
+
+        private System.Collections.IEnumerator SettlePlacedBuildable(GameObject go)
+        {
+            if (go == null)
+                yield break;
+
+            // Add a temporary rigidbody to let physics settle only in Y.
+            var rb = go.GetComponent<Rigidbody>();
+            var added = rb == null;
+            if (rb == null)
+                rb = go.AddComponent<Rigidbody>();
+
+            rb.isKinematic = false;
+            rb.useGravity = true;
+            rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionX | RigidbodyConstraints.FreezePositionZ;
+            rb.drag = 6f;
+            rb.angularDrag = 8f;
+
+            var start = Time.time;
+            var maxTime = 0.85f;
+            while (Time.time - start < maxTime)
+            {
+                if (rb == null)
+                    yield break;
+                if (rb.IsSleeping())
+                    break;
+                yield return null;
+            }
+
+            if (rb == null)
+                yield break;
+
+            // Lock it in place after settling.
+            rb.velocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            rb.useGravity = false;
+            rb.isKinematic = true;
+            rb.constraints = RigidbodyConstraints.FreezeAll;
+
+            // If we added it purely for settling, we keep it kinematic so the object never "wanders".
+            // (Removing the rigidbody can change contact behavior across Unity versions.)
+            if (added)
+                yield break;
         }
 
         private GameObject SpawnBuildableGameObject(string itemId, Vector3 pos, Quaternion rot, bool applyEconomy)
@@ -503,6 +553,10 @@ namespace Frontline.Buildables
 
             var destructible = go.AddComponent<Destructible>();
             destructible.SetDefinitionId(itemId);
+
+            // Patch 5.2: health visibility on buildables.
+            if (go.GetComponent<WorldHealthPipBar>() == null)
+                go.AddComponent<WorldHealthPipBar>();
 
             if (itemId == "build_storage")
             {
@@ -705,8 +759,16 @@ namespace Frontline.Buildables
             var half = scale * 0.5f;
             half.y = Mathf.Max(0.1f, half.y);
 
+            // Patch 5.3A: placement validity must work when rotated and allow flush adjacency.
+            // Use an oriented box (OverlapBox with rotation) and a small "skin" so touching faces aren't treated as overlap.
+            var skin = Mathf.Max(0.005f, gridSizeMeters * 0.02f);
+            var ext = new Vector3(
+                Mathf.Max(0.05f, half.x - skin),
+                Mathf.Max(0.05f, half.y - skin),
+                Mathf.Max(0.05f, half.z - skin));
+
             // Check for blocking colliders (ignore triggers and non-gameplay colliders).
-            var hits = Physics.OverlapBox(pos, half * 0.90f, rot, ~0, QueryTriggerInteraction.Ignore);
+            var hits = Physics.OverlapBox(pos, ext, rot, ~0, QueryTriggerInteraction.Ignore);
             foreach (var c in hits)
             {
                 if (c == null)

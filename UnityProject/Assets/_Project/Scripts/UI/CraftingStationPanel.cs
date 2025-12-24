@@ -75,7 +75,7 @@ namespace Frontline.UI
             var rect = new Rect((Screen.width - panelWidth) * 0.5f, pad, panelWidth, panelHeight);
 
             GUILayout.BeginArea(rect, GUI.skin.window);
-            GUILayout.Label($"{_activeStation.DisplayName} (E to interact, Esc to close)");
+            GUILayout.Label($"{_activeStation.DisplayName} (E toggles, Esc closes)");
 
             GUILayout.Space(6);
             DrawResources();
