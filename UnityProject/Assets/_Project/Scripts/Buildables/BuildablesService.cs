@@ -9,6 +9,7 @@ using Frontline.Economy;
 using Frontline.Gameplay;
 using Frontline.Tactical;
 using Frontline.UI;
+using Frontline.Vehicles;
 using Frontline.World;
 using UnityEngine;
 
@@ -828,7 +829,14 @@ namespace Frontline.Buildables
 
             var buildable = hit.collider != null ? hit.collider.GetComponentInParent<Buildable>() : null;
             if (buildable == null || buildable.Health == null)
+            {
+                // Milestone 6 additive: allow Hammer+LMB to repair the transport truck as well.
+                var truck = hit.collider != null ? hit.collider.GetComponentInParent<TransportTruckController>() : null;
+                if (truck == null)
+                    return;
+                truck.TryRepairHammerTick(repairHpPerTick, repairRange, _player);
                 return;
+            }
 
             var p = _player.position;
             p.y = 0f;

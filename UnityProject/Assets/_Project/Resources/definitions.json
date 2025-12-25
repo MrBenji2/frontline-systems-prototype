@@ -66,6 +66,15 @@
         { "materialId": "mat_scrap", "amount": 80 },
         { "materialId": "mat_alloy", "amount": 25 }
       ]
+    },
+    {
+      "id": "transport_truck",
+      "displayName": "Transport Truck",
+      "upgradeSlots": [],
+      "craftCosts": [
+        { "materialId": "mat_scrap", "amount": 80 },
+        { "materialId": "mat_alloy", "amount": 25 }
+      ]
     }
   ],
   "items": [
