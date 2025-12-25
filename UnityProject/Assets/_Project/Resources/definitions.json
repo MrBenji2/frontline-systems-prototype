@@ -41,6 +41,42 @@
         { "materialId": "mat_alloy", "amount": 30 },
         { "materialId": "mat_components", "amount": 12 }
       ]
+    },
+    {
+      "id": "weapon_knife",
+      "displayName": "Knife",
+      "rangeMeters": 1,
+      "damage": 6,
+      "speed": 8,
+      "maxDurability": 288,
+      "craftCosts": [
+        { "materialId": "mat_wood", "amount": 6 },
+        { "materialId": "mat_iron", "amount": 2 }
+      ]
+    },
+    {
+      "id": "weapon_sword",
+      "displayName": "Sword",
+      "rangeMeters": 2,
+      "damage": 2,
+      "speed": 5,
+      "maxDurability": 384,
+      "craftCosts": [
+        { "materialId": "mat_wood", "amount": 10 },
+        { "materialId": "mat_iron", "amount": 4 }
+      ]
+    },
+    {
+      "id": "weapon_pole",
+      "displayName": "Pole",
+      "rangeMeters": 3,
+      "damage": 3,
+      "speed": 3,
+      "maxDurability": 480,
+      "craftCosts": [
+        { "materialId": "mat_wood", "amount": 14 },
+        { "materialId": "mat_iron", "amount": 6 }
+      ]
     }
   ],
   "structures": [

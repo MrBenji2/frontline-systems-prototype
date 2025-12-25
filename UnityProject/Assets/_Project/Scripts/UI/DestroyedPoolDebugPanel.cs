@@ -152,12 +152,16 @@ namespace Frontline.UI
                     BuildablesService.Instance.SaveWorld();
                     if (TransportTruckService.Instance != null)
                         TransportTruckService.Instance.SaveWorld();
+                    if (PlayerInventoryService.Instance != null)
+                        PlayerInventoryService.Instance.SaveToolsToDisk();
                 }
                 if (GUILayout.Button("Load World", GUILayout.Width(120)))
                 {
                     BuildablesService.Instance.LoadWorld();
                     if (TransportTruckService.Instance != null)
                         TransportTruckService.Instance.LoadWorld();
+                    if (PlayerInventoryService.Instance != null)
+                        PlayerInventoryService.Instance.LoadToolsFromDisk();
                 }
                 GUILayout.EndHorizontal();
 

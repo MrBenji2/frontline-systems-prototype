@@ -1,6 +1,8 @@
 using Frontline.Harvesting;
 using Frontline.Tactical;
 using Frontline.Buildables;
+using Frontline.Crafting;
+using Frontline.Gameplay;
 using Frontline.World;
 using UnityEngine;
 
@@ -30,6 +32,7 @@ namespace Frontline.Combat
 
         private float _nextRangedTime;
         private float _nextMeleeTime;
+        private float _nextWeaponMeleeTime;
 
         private void Update()
         {
@@ -37,7 +40,16 @@ namespace Frontline.Combat
                 return;
 
             if (Input.GetMouseButton(0))
-                TryRanged();
+            {
+                // Context priority: harvesting wins.
+                if (!IsHarvestingTargetUnderCursor())
+                {
+                    if (IsEquippedMeleeWeapon())
+                        TryWeaponMelee();
+                    else
+                        TryRanged();
+                }
+            }
             if (Input.GetMouseButton(1))
                 TryMelee();
         }
@@ -49,15 +61,12 @@ namespace Frontline.Combat
 
             var rect = new Rect(10, Screen.height - 34, 220, 24);
             GUI.Box(rect, "");
-            GUI.Label(new Rect(rect.x + 6, rect.y + 3, rect.width - 12, rect.height - 6), "Combat: LMB shoot / RMB melee");
+            GUI.Label(new Rect(rect.x + 6, rect.y + 3, rect.width - 12, rect.height - 6), "Combat: LMB shoot(or melee) / RMB melee");
         }
 
         private void TryRanged()
         {
             if (Time.unscaledTime < _nextRangedTime)
-                return;
-
-            if (IsHarvestingTargetUnderCursor())
                 return;
 
             var cam = Camera.main;
@@ -75,6 +84,92 @@ namespace Frontline.Combat
                 return;
 
             h.ApplyDamage(rangedDamage, gameObject);
+        }
+
+        private bool IsEquippedMeleeWeapon()
+        {
+            if (PlayerInventoryService.Instance == null)
+                return false;
+            var t = PlayerInventoryService.Instance.EquippedTool;
+            return t != null && t.toolType == ToolType.MeleeWeapon && MeleeWeaponStats.TryGet(t.itemId, out _);
+        }
+
+        private void TryWeaponMelee()
+        {
+            if (Time.unscaledTime < _nextWeaponMeleeTime)
+                return;
+            if (PlayerInventoryService.Instance == null)
+                return;
+
+            var tool = PlayerInventoryService.Instance.EquippedTool;
+            if (tool == null || tool.toolType != ToolType.MeleeWeapon)
+                return;
+            if (!MeleeWeaponStats.TryGet(tool.itemId, out var s))
+                return;
+
+            // Higher speed = faster attacks.
+            var cooldown = 1f / Mathf.Max(0.1f, s.speed);
+            _nextWeaponMeleeTime = Time.unscaledTime + Mathf.Clamp(cooldown, 0.05f, 2.0f);
+
+            var cam = Camera.main;
+            if (cam == null)
+                return;
+
+            // Aim direction from cursor (top-down friendly).
+            var dir = transform.forward;
+            var ray = cam.ScreenPointToRay(Input.mousePosition);
+            if (Physics.Raycast(ray, out var aimHit, 200f, ~0, QueryTriggerInteraction.Collide))
+            {
+                var to = aimHit.point - transform.position;
+                to.y = 0f;
+                if (to.sqrMagnitude > 0.001f)
+                    dir = to.normalized;
+            }
+            else
+            {
+                dir.y = 0f;
+                if (dir.sqrMagnitude > 0.001f)
+                    dir.Normalize();
+            }
+
+            var origin = transform.position + Vector3.up * 1.0f;
+            const float radius = 0.6f;
+            var hits = Physics.SphereCastAll(origin, radius, dir, Mathf.Max(0.25f, s.rangeMeters), ~0, QueryTriggerInteraction.Ignore);
+            if (hits == null || hits.Length == 0)
+                return;
+
+            // Sort by distance so intervening world geometry can block.
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+            Health target = null;
+            foreach (var h in hits)
+            {
+                var c = h.collider;
+                if (c == null)
+                    continue;
+                if (c.isTrigger)
+                    continue;
+
+                var hh = c.GetComponentInParent<Health>();
+                if (hh != null)
+                {
+                    if (hh.IsDead)
+                        continue;
+                    if (hh.GetComponent<TacticalPlayerController>() != null)
+                        continue;
+                    target = hh;
+                    break;
+                }
+
+                // First solid hit without Health blocks further hits (prevents hitting through walls).
+                break;
+            }
+
+            if (target == null)
+                return;
+
+            target.ApplyDamage(s.damage, gameObject);
+            PlayerInventoryService.Instance.ConsumeEquippedDurability(1);
         }
 
         private void TryMelee()
