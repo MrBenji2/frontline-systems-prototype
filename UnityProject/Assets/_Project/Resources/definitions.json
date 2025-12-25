@@ -90,6 +90,192 @@
     { "id": "tool_hammer_iron", "displayName": "Iron Hammer" },
 
     { "id": "tool_gas_can", "displayName": "Gas Can" }
-  ]
+  ],
+  "certifications": {
+    "ladders": [
+      {
+        "ladderId": "infantry",
+        "displayName": "Infantry",
+        "category": "Infantry",
+        "tiers": [
+          {
+            "tier": 1,
+            "certId": "infantry_1_rifleman",
+            "displayName": "Rifleman",
+            "permissions": ["inf.basic"],
+            "requirements": { "type": "milestone_stub" },
+            "version": 1,
+            "expires": { "mode": "versioned", "days": null }
+          },
+          {
+            "tier": 2,
+            "certId": "infantry_2_grenadier",
+            "displayName": "Grenadier",
+            "permissions": ["inf.basic", "inf.grenades"],
+            "requirements": { "type": "milestone_stub" },
+            "version": 1,
+            "expires": { "mode": "versioned", "days": null }
+          },
+          {
+            "tier": 3,
+            "certId": "infantry_3_squad_lead",
+            "displayName": "Squad Lead",
+            "permissions": ["inf.basic", "cmd.squadlead"],
+            "requirements": { "type": "milestone_stub" },
+            "version": 1,
+            "expires": { "mode": "versioned", "days": null }
+          },
+          {
+            "tier": 4,
+            "certId": "infantry_4_platoon_lead",
+            "displayName": "Platoon Lead",
+            "permissions": ["inf.basic", "cmd.platoonlead"],
+            "requirements": { "type": "milestone_stub" },
+            "version": 1,
+            "expires": { "mode": "versioned", "days": null }
+          }
+        ]
+      },
+      {
+        "ladderId": "logistics",
+        "displayName": "Logistics",
+        "category": "Logistics",
+        "tiers": [
+          {
+            "tier": 1,
+            "certId": "logistics_1_runner",
+            "displayName": "Runner",
+            "permissions": ["log.deposit", "log.carry"],
+            "requirements": { "type": "milestone_stub" },
+            "version": 1,
+            "expires": { "mode": "versioned", "days": null }
+          },
+          {
+            "tier": 2,
+            "certId": "logistics_2_operator",
+            "displayName": "Operator",
+            "permissions": ["log.deposit", "log.carry", "log.withdraw_high"],
+            "requirements": { "type": "milestone_stub" },
+            "version": 1,
+            "expires": { "mode": "versioned", "days": null }
+          },
+          {
+            "tier": 3,
+            "certId": "logistics_3_foreman",
+            "displayName": "Foreman",
+            "permissions": ["log.deposit", "log.carry", "log.withdraw_high", "log.dispatch"],
+            "requirements": { "type": "milestone_stub" },
+            "version": 1,
+            "expires": { "mode": "versioned", "days": null }
+          },
+          {
+            "tier": 4,
+            "certId": "logistics_4_quartermaster",
+            "displayName": "Quartermaster",
+            "permissions": ["log.deposit", "log.carry", "log.withdraw_high", "log.dispatch", "cmd.stock_authorize"],
+            "requirements": { "type": "milestone_stub" },
+            "version": 1,
+            "expires": { "mode": "versioned", "days": null }
+          }
+        ]
+      },
+      {
+        "ladderId": "engineering",
+        "displayName": "Engineering",
+        "category": "Engineering",
+        "tiers": [
+          {
+            "tier": 1,
+            "certId": "engineering_1_builder",
+            "displayName": "Builder",
+            "permissions": ["eng.repair", "eng.build_basic"],
+            "requirements": { "type": "milestone_stub" },
+            "version": 1,
+            "expires": { "mode": "versioned", "days": null }
+          },
+          {
+            "tier": 2,
+            "certId": "engineering_2_sapper",
+            "displayName": "Sapper",
+            "permissions": ["eng.repair", "eng.build_basic", "eng.fortify"],
+            "requirements": { "type": "milestone_stub" },
+            "version": 1,
+            "expires": { "mode": "versioned", "days": null }
+          },
+          {
+            "tier": 3,
+            "certId": "engineering_3_demolitions",
+            "displayName": "Demolitions",
+            "permissions": ["eng.repair", "eng.build_basic", "eng.fortify", "eng.dismantle_allied"],
+            "requirements": { "type": "milestone_stub" },
+            "version": 1,
+            "expires": { "mode": "versioned", "days": null }
+          },
+          {
+            "tier": 4,
+            "certId": "engineering_4_chief",
+            "displayName": "Chief Engineer",
+            "permissions": ["eng.repair", "eng.build_basic", "eng.fortify", "eng.dismantle_allied", "cmd.engineering_authorize"],
+            "requirements": { "type": "milestone_stub" },
+            "version": 1,
+            "expires": { "mode": "versioned", "days": null }
+          }
+        ]
+      },
+      {
+        "ladderId": "vehicles_lighttransport",
+        "displayName": "Vehicles: Light Transport",
+        "category": "Vehicles",
+        "tiers": [
+          {
+            "tier": 1,
+            "certId": "veh_lt_1_puller",
+            "displayName": "Puller",
+            "permissions": ["veh.pull_lighttransport"],
+            "requirements": { "type": "milestone_stub" },
+            "version": 1,
+            "expires": { "mode": "versioned", "days": null }
+          },
+          {
+            "tier": 2,
+            "certId": "veh_lt_2_driver",
+            "displayName": "Driver",
+            "permissions": ["veh.pull_lighttransport", "veh.drive_lighttransport"],
+            "requirements": { "type": "milestone_stub" },
+            "version": 1,
+            "expires": { "mode": "versioned", "days": null }
+          },
+          {
+            "tier": 3,
+            "certId": "veh_lt_3_operator",
+            "displayName": "Operator",
+            "permissions": ["veh.pull_lighttransport", "veh.drive_lighttransport", "veh.loadout_lighttransport"],
+            "requirements": { "type": "milestone_stub" },
+            "version": 1,
+            "expires": { "mode": "versioned", "days": null }
+          },
+          {
+            "tier": 4,
+            "certId": "veh_lt_4_supervisor",
+            "displayName": "Supervisor",
+            "permissions": ["veh.pull_lighttransport", "veh.drive_lighttransport", "veh.loadout_lighttransport", "cmd.vehicle_authorize"],
+            "requirements": { "type": "milestone_stub" },
+            "version": 1,
+            "expires": { "mode": "versioned", "days": null }
+          }
+        ]
+      }
+    ]
+  },
+  "ranks": {
+    "factionRanks": [
+      { "rankId": "r0", "displayName": "Recruit", "minTrust": 0 },
+      { "rankId": "r1", "displayName": "Private", "minTrust": 10 },
+      { "rankId": "r2", "displayName": "Corporal", "minTrust": 25 },
+      { "rankId": "r3", "displayName": "Sergeant", "minTrust": 45 },
+      { "rankId": "r4", "displayName": "Lieutenant", "minTrust": 70 },
+      { "rankId": "r5", "displayName": "Captain", "minTrust": 100 }
+    ]
+  }
 }
 

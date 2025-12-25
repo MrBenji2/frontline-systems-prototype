@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Frontline.Trust;
 
 namespace Frontline.Definitions
 {
@@ -11,6 +12,10 @@ namespace Frontline.Definitions
         public List<StructureDef> structures = new();
         public List<VehicleDef> vehicles = new();
         public List<ItemDef> items = new();
+
+        // Milestone 7 (Trust): data-driven certifications + ranks.
+        public CertificationsDefinitions certifications = new();
+        public RanksDefinitions ranks = new();
     }
 
     [Serializable]
