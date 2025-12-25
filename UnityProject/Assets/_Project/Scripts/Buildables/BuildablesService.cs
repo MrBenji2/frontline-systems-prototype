@@ -109,6 +109,11 @@ namespace Frontline.Buildables
                 _nextAutosaveTime = Time.unscaledTime + 0.25f;
             }
 
+            // If any gameplay modal is open, don't process build/crate/repair inputs.
+            // (This allows Esc to close the modal without exiting Construction Mode.)
+            if (UiModalManager.Instance != null && UiModalManager.Instance.HasOpenModal)
+                return;
+
             // If crate UI is open, don't process build mode/repair inputs.
             if (StorageCratePanel.Instance != null && StorageCratePanel.Instance.IsOpen)
                 return;
