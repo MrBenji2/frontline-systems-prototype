@@ -17,7 +17,8 @@ namespace Frontline.Loot
 
         private void Update()
         {
-            if (LootWindowPanel.Instance != null && LootWindowPanel.Instance.IsOpen)
+            // If any gameplay modal is open, interaction should not open another.
+            if (UiModalManager.Instance != null && UiModalManager.Instance.HasOpenModal)
                 return;
 
             _nearest = FindNearestLoot();
@@ -26,14 +27,29 @@ namespace Frontline.Loot
 
             if (Input.GetKeyDown(lootKey))
             {
-                if (LootWindowPanel.Instance != null)
-                    LootWindowPanel.Instance.Open(_nearest);
+                if (LootWindowPanel.Instance == null)
+                    return;
+
+                if (UiModalManager.Instance != null)
+                {
+                    UiModalManager.Instance.TryToggleInteractModal(
+                        modalId: "loot_window",
+                        tryOpen: () =>
+                        {
+                            LootWindowPanel.Instance.Open(_nearest);
+                            return LootWindowPanel.Instance.IsOpen;
+                        },
+                        closeAction: LootWindowPanel.Instance.Close);
+                    return;
+                }
+
+                LootWindowPanel.Instance.Open(_nearest);
             }
         }
 
         private void OnGUI()
         {
-            if (LootWindowPanel.Instance != null && LootWindowPanel.Instance.IsOpen)
+            if (UiModalManager.Instance != null && UiModalManager.Instance.HasOpenModal)
                 return;
 
             if (_nearest == null)

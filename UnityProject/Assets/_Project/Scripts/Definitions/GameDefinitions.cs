@@ -42,6 +42,11 @@ namespace Frontline.Definitions
         public string id = "";
         public string displayName = "";
         public List<CraftCost> craftCosts = new();
+
+        // Milestone 5.3 foundation metadata (additive).
+        public string description = "";
+        public string requiredSkillId = "";
+        public List<string> builtAtStations = new();
     }
 
     [Serializable]

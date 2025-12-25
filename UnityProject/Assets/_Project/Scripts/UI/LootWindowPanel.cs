@@ -10,6 +10,8 @@ namespace Frontline.UI
     /// </summary>
     public sealed class LootWindowPanel : MonoBehaviour
     {
+        private const string ModalId = "loot_window";
+
         public static LootWindowPanel Instance { get; private set; }
 
         [SerializeField] private bool visible;
@@ -33,20 +35,25 @@ namespace Frontline.UI
         {
             _active = pickup;
             visible = pickup != null;
+
+            if (visible && UiModalManager.Instance != null)
+                UiModalManager.Instance.RegisterOpen(ModalId, Close, openedByInteract: true);
         }
 
         public void Close()
         {
             visible = false;
             _active = null;
+
+            if (UiModalManager.Instance != null)
+                UiModalManager.Instance.RegisterClosed(ModalId);
         }
 
         private void Update()
         {
             if (!IsOpen)
                 return;
-            if (Input.GetKeyDown(KeyCode.Escape))
-                Close();
+            // Universal close rules are handled by UiModalManager.
         }
 
         private void OnGUI()

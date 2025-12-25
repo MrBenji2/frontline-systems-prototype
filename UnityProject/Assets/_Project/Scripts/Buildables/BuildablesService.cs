@@ -43,6 +43,7 @@ namespace Frontline.Buildables
         private string _selectedItemId = "build_foundation";
         private int _rotationSteps;
         private int _heightLevel;
+        private string _placementBlockedReason = "";
 
         private GameObject _preview;
         private Renderer _previewRenderer;
@@ -62,8 +63,16 @@ namespace Frontline.Buildables
         private string SavePath => Path.Combine(Application.persistentDataPath, "buildables_world.json");
 
         public bool IsBuildModeActive => _buildMode;
-        public bool IsInputLockedForCombatOrHarvest => _buildMode || (StorageCratePanel.Instance != null && StorageCratePanel.Instance.IsOpen);
+        public bool IsInputLockedForCombatOrHarvest =>
+            _buildMode
+            || (UiModalManager.Instance != null && UiModalManager.Instance.HasOpenModal)
+            || (StorageCratePanel.Instance != null && StorageCratePanel.Instance.IsOpen);
         public string SelectedBuildItemId => _selectedItemId;
+
+        public void SetSelectedBuildItem(string itemId)
+        {
+            Select(itemId);
+        }
 
         public void ToggleBuildMode()
         {
@@ -100,6 +109,11 @@ namespace Frontline.Buildables
                 _nextAutosaveTime = Time.unscaledTime + 0.25f;
             }
 
+            // If any gameplay modal is open, don't process build/crate/repair inputs.
+            // (This allows Esc to close the modal without exiting Construction Mode.)
+            if (UiModalManager.Instance != null && UiModalManager.Instance.HasOpenModal)
+                return;
+
             // If crate UI is open, don't process build mode/repair inputs.
             if (StorageCratePanel.Instance != null && StorageCratePanel.Instance.IsOpen)
                 return;
@@ -125,6 +139,8 @@ namespace Frontline.Buildables
             if (Input.GetKeyDown(KeyCode.Alpha2)) Select("build_wall");
             if (Input.GetKeyDown(KeyCode.Alpha3)) Select("build_gate");
             if (Input.GetKeyDown(KeyCode.Alpha4)) Select("build_storage");
+            if (Input.GetKeyDown(KeyCode.Alpha5)) Select("build_ramp");
+            if (Input.GetKeyDown(KeyCode.Alpha0)) ClearSelectionForRepair();
 
             if (Input.GetKeyDown(KeyCode.R))
                 _rotationSteps = (_rotationSteps + 1) % 4;
@@ -134,6 +150,16 @@ namespace Frontline.Buildables
             if (Mathf.Abs(wheel) > 0.01f)
             {
                 _heightLevel = Mathf.Max(0, _heightLevel + (wheel > 0 ? 1 : -1));
+            }
+
+            // Construction Mode rules:
+            // - If build selection active: preview + place.
+            // - If no selection: allow hammer repair while staying in construction mode.
+            if (string.IsNullOrWhiteSpace(_selectedItemId))
+            {
+                DestroyPreview();
+                HandleRepair();
+                return;
             }
 
             UpdatePreview();
@@ -174,11 +200,14 @@ namespace Frontline.Buildables
             var lines =
                 _buildMode
                     ? $"Mode: {mode}\n" +
-                      $"Keys: 1 Foundation | 2 Wall | 3 Gate | 4 Storage\n" +
-                      $"R rotate | MouseWheel height ({_heightLevel}) | LMB place | RMB/Esc exit"
+                      $"Keys: 1 Foundation | 2 Wall | 3 Gate | 4 Storage | 5 Ramp | 0 Repair\n" +
+                      $"R rotate | MouseWheel height ({_heightLevel}) | LMB place | (0: Hammer+LMB repair) | RMB/Esc exit"
                     : $"Mode: {mode}\n" +
                       $"B: Build Mode\n" +
                       $"Hammer+LMB: Repair | E: Open/Close Storage Crate | Esc: Close UI";
+
+            if (_buildMode && !string.IsNullOrWhiteSpace(_placementBlockedReason))
+                lines += $"\nBlocked: {_placementBlockedReason}";
 
             GUI.Label(new Rect(rect.x + 10, rect.y + 8, rect.width - 20, rect.height - 16), lines, labelStyle);
         }
@@ -233,12 +262,17 @@ namespace Frontline.Buildables
                         rotation = b.transform.rotation,
                         currentHp = b.Health.CurrentHp,
                         ownerTeam = b.OwnerTeam,
+                        ownerId = b.OwnerId,
                         stored = new List<BuildablesWorldSnapshot.ItemStack>()
                     };
 
                     var crate = b.GetComponent<StorageCrate>();
                     if (crate != null)
                         e.stored = crate.ToSnapshot();
+
+                    var gate = b.GetComponent<GateController>();
+                    if (gate != null)
+                        e.gateOpen = gate.IsOpen;
 
                     snap.buildables.Add(e);
                 }
@@ -302,11 +336,18 @@ namespace Frontline.Buildables
 
             var b = go.GetComponent<Buildable>();
             if (b != null)
+            {
                 b.SetCurrentHpForLoad(e.currentHp);
+                b.SetOwnerForLoad(e.ownerId);
+            }
 
             var crate = go.GetComponent<StorageCrate>();
             if (crate != null)
                 crate.LoadFromSnapshot(e.stored);
+
+            var gate = go.GetComponent<GateController>();
+            if (gate != null)
+                gate.SetOpenForLoad(e.gateOpen);
         }
 
         private void ClearAllBuildablesRuntime()
@@ -347,6 +388,16 @@ namespace Frontline.Buildables
             _heightLevel = 0;
             SelectionUIState.SetSelected(string.IsNullOrWhiteSpace(_selectedItemId) ? "" : $"Selected: {_selectedItemId}");
             EnsurePreview();
+        }
+
+        private void ClearSelectionForRepair()
+        {
+            _selectedItemId = "";
+            _rotationSteps = 0;
+            _heightLevel = 0;
+            _placementBlockedReason = "";
+            SelectionUIState.SetSelected("Selected: repair");
+            DestroyPreview();
         }
 
         private void EnsurePreview()
@@ -449,12 +500,63 @@ namespace Frontline.Buildables
             if (go == null)
                 return;
 
+            // Patch 5.2: settle buildables vertically to eliminate occasional floating.
+            StartCoroutine(SettlePlacedBuildable(go));
+
             MarkDirty();
+        }
+
+        private System.Collections.IEnumerator SettlePlacedBuildable(GameObject go)
+        {
+            if (go == null)
+                yield break;
+
+            // Add a temporary rigidbody to let physics settle only in Y.
+            var rb = go.GetComponent<Rigidbody>();
+            var added = rb == null;
+            if (rb == null)
+                rb = go.AddComponent<Rigidbody>();
+
+            rb.isKinematic = false;
+            rb.useGravity = true;
+            rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionX | RigidbodyConstraints.FreezePositionZ;
+            rb.drag = 6f;
+            rb.angularDrag = 8f;
+
+            var start = Time.time;
+            var maxTime = 0.85f;
+            while (Time.time - start < maxTime)
+            {
+                if (rb == null)
+                    yield break;
+                if (rb.IsSleeping())
+                    break;
+                yield return null;
+            }
+
+            if (rb == null)
+                yield break;
+
+            // Lock it in place after settling.
+            rb.velocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            rb.useGravity = false;
+            rb.isKinematic = true;
+            rb.constraints = RigidbodyConstraints.FreezeAll;
+
+            // If we added it purely for settling, we keep it kinematic so the object never "wanders".
+            // (Removing the rigidbody can change contact behavior across Unity versions.)
+            if (added)
+                yield break;
         }
 
         private GameObject SpawnBuildableGameObject(string itemId, Vector3 pos, Quaternion rot, bool applyEconomy)
         {
             if (string.IsNullOrWhiteSpace(itemId))
+                return null;
+
+            // Skill/lock gate.
+            if (!CanPlaceBySkill(itemId, out _))
                 return null;
 
             var costs = GetBuildCosts(itemId);
@@ -477,6 +579,38 @@ namespace Frontline.Buildables
             GetShape(itemId, out var scale, out var tint);
             var maxHp = GetMaxHp(itemId);
 
+            GameObject go;
+            if (itemId == "build_ramp")
+                go = SpawnRamp(pos, rot);
+            else if (itemId == "build_gate")
+                go = SpawnGate(pos, rot);
+            else
+                go = SpawnSimpleCube(itemId, pos, rot, scale, tint);
+
+            if (go == null)
+                return null;
+
+            var buildable = go.AddComponent<Buildable>();
+            buildable.Configure(itemId, maxHp, team: 0);
+            buildable.Died += OnBuildableDied;
+
+            var destructible = go.AddComponent<Destructible>();
+            destructible.SetDefinitionId(itemId);
+
+            // Patch 5.2: health visibility on buildables.
+            if (go.GetComponent<WorldHealthPipBar>() == null)
+                go.AddComponent<WorldHealthPipBar>();
+
+            if (itemId == "build_storage")
+            {
+                go.AddComponent<StorageCrate>();
+            }
+
+            return go;
+        }
+
+        private static GameObject SpawnSimpleCube(string itemId, Vector3 pos, Quaternion rot, Vector3 scale, Color tint)
+        {
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = itemId;
             go.transform.SetPositionAndRotation(pos, rot);
@@ -497,19 +631,83 @@ namespace Frontline.Buildables
                 r.material = GetPlaceholderMaterialForBuildable(itemId, tint);
             }
 
-            var buildable = go.AddComponent<Buildable>();
-            buildable.Configure(itemId, maxHp, team: 0);
-            buildable.Died += OnBuildableDied;
-
-            var destructible = go.AddComponent<Destructible>();
-            destructible.SetDefinitionId(itemId);
-
-            if (itemId == "build_storage")
-            {
-                go.AddComponent<StorageCrate>();
-            }
-
             return go;
+        }
+
+        private static GameObject SpawnRamp(Vector3 pos, Quaternion rot)
+        {
+            var root = new GameObject("build_ramp");
+            root.layer = 0;
+            root.transform.SetPositionAndRotation(pos, rot);
+
+            // Approximate a wedge with a sloped top (walkable).
+            // Rise = WORLD_LEVEL_HEIGHT, run = 2.0m to match foundation footprint.
+            const float width = 2.0f;
+            const float run = 2.0f;
+            var rise = WorldConstants.WORLD_LEVEL_HEIGHT;
+            var angleDeg = Mathf.Atan2(rise, run) * Mathf.Rad2Deg; // ~26.565
+            var slopeLen = Mathf.Sqrt(run * run + rise * rise);   // ~2.236
+            const float thickness = 0.25f;
+
+            var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            body.name = "RampBody";
+            body.layer = 0;
+            body.transform.SetParent(root.transform, false);
+            body.transform.localScale = new Vector3(width, thickness, slopeLen);
+            body.transform.localRotation = Quaternion.Euler(-angleDeg, 0f, 0f);
+
+            // Center height so the lowest point sits on the support surface.
+            var a = angleDeg * Mathf.Deg2Rad;
+            var t = thickness * 0.5f;
+            var l = slopeLen * 0.5f;
+            var centerY = t * Mathf.Cos(a) + l * Mathf.Sin(a);
+            body.transform.localPosition = new Vector3(0f, centerY, 0f);
+
+            var r = body.GetComponent<Renderer>();
+            if (r != null)
+                r.material = GetPlaceholderMaterialForBuildable("build_ramp", new Color(0.55f, 0.40f, 0.20f));
+
+            return root;
+        }
+
+        private static GameObject SpawnGate(Vector3 pos, Quaternion rot)
+        {
+            var root = new GameObject("build_gate");
+            root.layer = 0;
+            root.transform.SetPositionAndRotation(pos, rot);
+
+            // Always-on interaction volume (raycastable, but non-blocking).
+            var interact = root.AddComponent<BoxCollider>();
+            interact.isTrigger = true;
+            interact.size = new Vector3(2.0f, 2.0f, 0.35f);
+            interact.center = Vector3.zero;
+
+            // Pivot at left hinge.
+            var pivot = new GameObject("DoorPivot");
+            pivot.layer = 0;
+            pivot.transform.SetParent(root.transform, false);
+            pivot.transform.localPosition = new Vector3(-1.0f, 0f, 0f);
+            pivot.transform.localRotation = Quaternion.identity;
+
+            var door = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            door.name = "Door";
+            door.layer = 0;
+            door.transform.SetParent(pivot.transform, false);
+            door.transform.localScale = new Vector3(2.0f, 2.0f, 0.35f);
+            door.transform.localPosition = new Vector3(1.0f, 0f, 0f);
+
+            var doorCol = door.GetComponent<Collider>();
+            if (doorCol != null)
+                doorCol.isTrigger = false;
+
+            var r = door.GetComponent<Renderer>();
+            if (r != null)
+                r.material = GetPlaceholderMaterialForBuildable("build_gate", new Color(0.35f, 0.25f, 0.15f));
+
+            var gate = root.AddComponent<GateController>();
+            gate.Configure(pivot.transform, doorCol, interact);
+
+            return root;
         }
 
         private static Material _matWood;
@@ -565,6 +763,10 @@ namespace Frontline.Buildables
             if (!Input.GetKeyDown(KeyCode.E))
                 return;
 
+            // Patch 5.2: if an interact-opened modal is open, E should close it (handled centrally).
+            if (UiModalManager.Instance != null && UiModalManager.Instance.HasOpenModal)
+                return;
+
             if (_player == null || Camera.main == null)
                 return;
 
@@ -583,8 +785,23 @@ namespace Frontline.Buildables
             if (Vector3.Distance(p, h) > 1.5f)
                 return;
 
-            if (StorageCratePanel.Instance != null)
-                StorageCratePanel.Instance.Open(crate);
+            if (StorageCratePanel.Instance == null)
+                return;
+
+            if (UiModalManager.Instance != null)
+            {
+                UiModalManager.Instance.TryToggleInteractModal(
+                    modalId: "storage_crate",
+                    tryOpen: () =>
+                    {
+                        StorageCratePanel.Instance.Open(crate);
+                        return StorageCratePanel.Instance.IsOpen;
+                    },
+                    closeAction: StorageCratePanel.Instance.Close);
+                return;
+            }
+
+            StorageCratePanel.Instance.Open(crate);
         }
 
         private void HandleRepair()
@@ -675,19 +892,38 @@ namespace Frontline.Buildables
 
         private bool IsPlacementValid(string itemId, Vector3 pos, Quaternion rot)
         {
+            _placementBlockedReason = "";
+
             if (PlayerInventoryService.Instance == null)
                 return false;
 
+            if (!CanPlaceBySkill(itemId, out var skillReason))
+            {
+                _placementBlockedReason = skillReason;
+                return false;
+            }
+
             var costs = GetBuildCosts(itemId);
             if (!PlayerInventoryService.Instance.CanAfford(costs))
+            {
+                _placementBlockedReason = "Insufficient materials";
                 return false;
+            }
 
             GetShape(itemId, out var scale, out _);
             var half = scale * 0.5f;
             half.y = Mathf.Max(0.1f, half.y);
 
+            // Patch 5.3A: placement validity must work when rotated and allow flush adjacency.
+            // Use an oriented box (OverlapBox with rotation) and a small "skin" so touching faces aren't treated as overlap.
+            var skin = Mathf.Max(0.005f, gridSizeMeters * 0.02f);
+            var ext = new Vector3(
+                Mathf.Max(0.05f, half.x - skin),
+                Mathf.Max(0.05f, half.y - skin),
+                Mathf.Max(0.05f, half.z - skin));
+
             // Check for blocking colliders (ignore triggers and non-gameplay colliders).
-            var hits = Physics.OverlapBox(pos, half * 0.90f, rot, ~0, QueryTriggerInteraction.Ignore);
+            var hits = Physics.OverlapBox(pos, ext, rot, ~0, QueryTriggerInteraction.Ignore);
             foreach (var c in hits)
             {
                 if (c == null)
@@ -705,6 +941,31 @@ namespace Frontline.Buildables
                     return false;
                 if (c.GetComponentInParent<Combat.NpcController>() != null)
                     return false;
+            }
+
+            return true;
+        }
+
+        private bool CanPlaceBySkill(string itemId, out string reason)
+        {
+            reason = "";
+            if (DefinitionRegistry.Instance == null)
+                return true;
+
+            var def = DefinitionRegistry.Instance.Definitions.structures.FirstOrDefault(s => s != null && s.id == itemId);
+            if (def == null || string.IsNullOrWhiteSpace(def.requiredSkillId))
+                return true;
+
+            if (PlayerSkillsService.Instance == null)
+            {
+                reason = $"Locked: {def.requiredSkillId}";
+                return false;
+            }
+
+            if (!PlayerSkillsService.Instance.HasSkill(def.requiredSkillId))
+            {
+                reason = $"Locked: {def.requiredSkillId}";
+                return false;
             }
 
             return true;
@@ -766,6 +1027,7 @@ namespace Frontline.Buildables
                 "build_wall" => 160,
                 "build_gate" => 190,
                 "build_storage" => 140,
+                "build_ramp" => 180,
                 _ => 120
             };
         }
@@ -788,6 +1050,10 @@ namespace Frontline.Buildables
                     break;
                 case "build_storage":
                     scale = new Vector3(1.0f, 1.0f, 1.0f);
+                    tint = new Color(0.55f, 0.40f, 0.20f);
+                    break;
+                case "build_ramp":
+                    scale = new Vector3(2.0f, 1.25f, 2.0f);
                     tint = new Color(0.55f, 0.40f, 0.20f);
                     break;
                 default:

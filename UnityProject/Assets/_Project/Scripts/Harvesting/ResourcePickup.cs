@@ -6,6 +6,10 @@ namespace Frontline.Harvesting
 {
     public sealed class ResourcePickup : MonoBehaviour
     {
+        // Patch 5.2: pickup range tuning constant.
+        public const float PICKUP_RADIUS = 1.1f;
+        private const float VisualScale = 0.35f;
+
         [SerializeField] private string resourceId = "mat_wood";
         [SerializeField] private int amount = 1;
         [SerializeField] private float spinSpeed = 120f;
@@ -36,10 +40,17 @@ namespace Frontline.Harvesting
             var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             go.name = $"Pickup_{resourceId}";
             go.transform.position = position;
-            go.transform.localScale = Vector3.one * 0.35f;
+            go.transform.localScale = Vector3.one * VisualScale;
 
             var col = go.GetComponent<Collider>();
             col.isTrigger = true;
+
+            // Increase trigger radius without scaling up the visual.
+            if (col is SphereCollider sphere)
+            {
+                var safeScale = Mathf.Max(0.0001f, VisualScale);
+                sphere.radius = PICKUP_RADIUS / safeScale;
+            }
 
             var rb = go.AddComponent<Rigidbody>();
             rb.isKinematic = true;

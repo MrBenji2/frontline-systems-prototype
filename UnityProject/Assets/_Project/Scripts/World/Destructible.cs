@@ -1,5 +1,6 @@
 using Frontline.Economy;
 using Frontline.Definitions;
+using Frontline.UI;
 using UnityEngine;
 
 namespace Frontline.World
@@ -22,6 +23,10 @@ namespace Frontline.World
         {
             _health = GetComponent<Health>();
             _health.Died += OnDied;
+
+            // Patch 5.2: ensure destructibles have visible health pips when damaged.
+            if (GetComponent<WorldHealthPipBar>() == null)
+                gameObject.AddComponent<WorldHealthPipBar>();
         }
 
         private void OnDestroy()
