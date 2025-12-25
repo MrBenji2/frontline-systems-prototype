@@ -921,7 +921,12 @@ namespace Frontline.Buildables
                 return;
 
             if (!PlayerInventoryService.Instance.TryRemoveResource(primary, 1))
+            {
+                // Patch 5.4B: insufficient materials popup for buildable repair.
+                if (HudMessagePopup.Instance != null)
+                    HudMessagePopup.Instance.Show("Insufficient materials");
                 return;
+            }
 
             buildable.Health.Restore(hp);
             MarkDirty();
@@ -1027,6 +1032,8 @@ namespace Frontline.Buildables
             var def = DefinitionRegistry.Instance.Definitions.structures.FirstOrDefault(s => s != null && s.id == itemId);
             if (def == null || string.IsNullOrWhiteSpace(def.requiredSkillId))
                 return true;
+
+            // TODO (Milestone 5.4): re-gate ramp when progression is added; keep unlocked for testing now.
 
             if (PlayerSkillsService.Instance == null)
             {

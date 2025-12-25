@@ -113,11 +113,19 @@ namespace Frontline.UI
                 GUILayout.Label(CostString(recipe.costs), GUILayout.Width(200));
 
                 var canCraft = inv.CanAfford(recipe.costs);
-                var prev = GUI.enabled;
-                GUI.enabled = canCraft;
                 if (GUILayout.Button("Craft", GUILayout.Width(70)))
-                    CraftingService.TryCraft(recipe);
-                GUI.enabled = prev;
+                {
+                    // Patch 5.4B: allow click to show popup on insufficient materials.
+                    if (!canCraft)
+                    {
+                        if (HudMessagePopup.Instance != null)
+                            HudMessagePopup.Instance.Show("Insufficient materials");
+                    }
+                    else
+                    {
+                        CraftingService.TryCraft(recipe);
+                    }
+                }
 
                 GUILayout.EndHorizontal();
             }

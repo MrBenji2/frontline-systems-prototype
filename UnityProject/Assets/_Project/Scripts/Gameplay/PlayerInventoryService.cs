@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Frontline.Crafting;
 using Frontline.Economy;
+using Frontline.UI;
 using UnityEngine;
 
 namespace Frontline.Gameplay
@@ -251,7 +252,12 @@ namespace Frontline.Gameplay
             }
 
             if (!CanAfford(costs))
+            {
+                // Patch 5.4B: insufficient materials popup for tool repair.
+                if (HudMessagePopup.Instance != null)
+                    HudMessagePopup.Instance.Show("Insufficient materials");
                 return false;
+            }
 
             Spend(costs);
             t.currentDurability = max;

@@ -1,5 +1,6 @@
 using Frontline.Economy;
 using Frontline.Gameplay;
+using Frontline.UI;
 
 namespace Frontline.Crafting
 {
@@ -13,7 +14,12 @@ namespace Frontline.Crafting
                 return false;
 
             if (!PlayerInventoryService.Instance.CanAfford(recipe.costs))
+            {
+                // Patch 5.4B: insufficient materials popup for crafting.
+                if (HudMessagePopup.Instance != null)
+                    HudMessagePopup.Instance.Show("Insufficient materials");
                 return false;
+            }
 
             PlayerInventoryService.Instance.Spend(recipe.costs);
             PlayerInventoryService.Instance.AddTool(recipe.itemId, recipe.maxDurability, recipe.toolType, recipe.tier, recipe.hitDamage);

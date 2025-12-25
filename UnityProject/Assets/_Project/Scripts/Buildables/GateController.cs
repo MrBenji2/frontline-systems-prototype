@@ -15,6 +15,7 @@ namespace Frontline.Buildables
         [SerializeField] private float interactRange = 3.3f; // +1.5m
         [SerializeField] private float swingDuration = 0.25f;
         [SerializeField] private float autoCloseSeconds = 2.0f;
+        [SerializeField] private float maxBlockedAutoCloseWaitSeconds = 5.0f;
 
         private Transform _pivot;
         private Collider _blockingCollider;
@@ -25,7 +26,8 @@ namespace Frontline.Buildables
         private float _t0;
         private Quaternion _from;
         private Quaternion _to;
-        private float _autoCloseAt = -1f;
+        private float _autoCloseAt = -1f;      // first close attempt time (and later retries)
+        private float _autoCloseForceAt = -1f; // close anyway by this time
 
         public bool IsOpen => _isOpen;
 
@@ -51,9 +53,19 @@ namespace Frontline.Buildables
             // Auto-close after opening.
             if (!_animating && _isOpen && _autoCloseAt > 0f && Time.time >= _autoCloseAt)
             {
-                _autoCloseAt = -1f;
-                _isOpen = false;
-                AnimateToState(false);
+                // Patch A: avoid closing into the player. Delay close if doorway is blocked,
+                // but force close after a capped wait.
+                if (!IsDoorwayBlocked() || (_autoCloseForceAt > 0f && Time.time >= _autoCloseForceAt))
+                {
+                    _autoCloseAt = -1f;
+                    _autoCloseForceAt = -1f;
+                    _isOpen = false;
+                    AnimateToState(false);
+                    return;
+                }
+
+                // Blocked: retry shortly.
+                _autoCloseAt = Time.time + 0.25f;
                 return;
             }
 
@@ -112,8 +124,45 @@ namespace Frontline.Buildables
         public void Toggle()
         {
             _isOpen = !_isOpen;
-            _autoCloseAt = _isOpen ? (Time.time + Mathf.Max(0.1f, autoCloseSeconds)) : -1f;
+            if (_isOpen)
+            {
+                _autoCloseAt = Time.time + Mathf.Max(0.1f, autoCloseSeconds);
+                _autoCloseForceAt = _autoCloseAt + Mathf.Max(0.1f, maxBlockedAutoCloseWaitSeconds);
+            }
+            else
+            {
+                // Manual close cancels any pending auto-close.
+                _autoCloseAt = -1f;
+                _autoCloseForceAt = -1f;
+            }
             AnimateToState(_isOpen);
+        }
+
+        private bool IsDoorwayBlocked()
+        {
+            // Minimal overlap check against player inside the interaction collider volume.
+            if (_interactCollider == null)
+                return false;
+
+            var b = _interactCollider.bounds;
+            var half = b.extents;
+
+            // Shrink so we detect the player in the doorway, not nearby.
+            half = new Vector3(
+                Mathf.Max(0.1f, half.x * 0.60f),
+                Mathf.Max(0.4f, half.y * 0.80f),
+                Mathf.Max(0.1f, half.z * 0.60f));
+
+            var hits = Physics.OverlapBox(b.center, half, Quaternion.identity, ~0, QueryTriggerInteraction.Collide);
+            foreach (var c in hits)
+            {
+                if (c == null)
+                    continue;
+                if (c.GetComponentInParent<TacticalPlayerController>() != null)
+                    return true;
+            }
+
+            return false;
         }
 
         private void AnimateToState(bool open)
