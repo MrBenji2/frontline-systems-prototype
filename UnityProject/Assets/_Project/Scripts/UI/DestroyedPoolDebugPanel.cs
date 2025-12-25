@@ -158,6 +158,22 @@ namespace Frontline.UI
                 GUILayout.EndHorizontal();
             }
 
+            GUILayout.Space(6);
+            GUILayout.Label("Milestone 5.3 (Skills - DEV):");
+            if (PlayerSkillsService.Instance == null)
+            {
+                GUILayout.Label("PlayerSkillsService: MISSING");
+            }
+            else
+            {
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("Grant skill_construction_1", GUILayout.Width(220)))
+                    PlayerSkillsService.Instance.GrantSkill(SkillIds.Construction1);
+                if (GUILayout.Button("Grant skill_construction_2", GUILayout.Width(220)))
+                    PlayerSkillsService.Instance.GrantSkill(SkillIds.Construction2);
+                GUILayout.EndHorizontal();
+            }
+
             GUILayout.Space(10);
             DrawPoolTables();
 

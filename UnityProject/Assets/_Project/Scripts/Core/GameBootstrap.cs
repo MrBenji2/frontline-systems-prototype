@@ -20,6 +20,7 @@ namespace Frontline.Core
             EnsureSingletonGO<DestroyedPoolDebugPanel>("_DestroyedPoolDebugPanel");
             EnsureSingletonGO<InventoryCraftingPanel>("_InventoryCraftingPanel");
             EnsureSingletonGO<UiModalManager>("_UiModalManager");
+            EnsureSingletonGO<BuildCatalogPanel>("_BuildCatalogPanel");
         }
 
         private static void EnsureSingletonGO<T>(string name) where T : Component

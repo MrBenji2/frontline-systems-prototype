@@ -9,11 +9,13 @@ namespace Frontline.Buildables
     {
         [SerializeField] private string itemId = "";
         [SerializeField] private int ownerTeam;
+        [SerializeField] private string ownerId = "player";
 
         private Health _health;
 
         public string ItemId => itemId;
         public int OwnerTeam => ownerTeam;
+        public string OwnerId => ownerId;
         public Health Health => _health;
 
         public event Action<Buildable> Died;
@@ -34,8 +36,19 @@ namespace Frontline.Buildables
         {
             itemId = id ?? "";
             ownerTeam = team;
+            ownerId = "player";
             _health.Configure(Mathf.Max(1, maxHp), true);
         }
+
+        public void SetOwnerForLoad(string id)
+        {
+            if (!string.IsNullOrWhiteSpace(id))
+                ownerId = id;
+        }
+
+        // Milestone 5.3 foundation: ownership/authorization hooks (single-player always true for now).
+        public bool CanInteract(string actorId) => true;
+        public bool CanDamage(string actorId) => true;
 
         public void SetCurrentHpForLoad(int currentHp)
         {
