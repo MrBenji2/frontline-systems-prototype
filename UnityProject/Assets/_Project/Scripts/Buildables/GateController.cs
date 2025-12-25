@@ -12,8 +12,9 @@ namespace Frontline.Buildables
     /// </summary>
     public sealed class GateController : MonoBehaviour
     {
-        [SerializeField] private float interactRange = 1.8f;
+        [SerializeField] private float interactRange = 3.3f; // +1.5m
         [SerializeField] private float swingDuration = 0.25f;
+        [SerializeField] private float autoCloseSeconds = 2.0f;
 
         private Transform _pivot;
         private Collider _blockingCollider;
@@ -24,6 +25,7 @@ namespace Frontline.Buildables
         private float _t0;
         private Quaternion _from;
         private Quaternion _to;
+        private float _autoCloseAt = -1f;
 
         public bool IsOpen => _isOpen;
 
@@ -45,6 +47,15 @@ namespace Frontline.Buildables
         {
             if (_pivot == null)
                 return;
+
+            // Auto-close after opening.
+            if (!_animating && _isOpen && _autoCloseAt > 0f && Time.time >= _autoCloseAt)
+            {
+                _autoCloseAt = -1f;
+                _isOpen = false;
+                AnimateToState(false);
+                return;
+            }
 
             if (_animating)
             {
@@ -101,6 +112,7 @@ namespace Frontline.Buildables
         public void Toggle()
         {
             _isOpen = !_isOpen;
+            _autoCloseAt = _isOpen ? (Time.time + Mathf.Max(0.1f, autoCloseSeconds)) : -1f;
             AnimateToState(_isOpen);
         }
 

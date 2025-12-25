@@ -52,6 +52,9 @@ namespace Frontline.Buildables
         private Quaternion _previewRot = Quaternion.identity;
         private bool _previewValid;
         private bool _previewSupported;
+        private string _previewItemId = "";
+
+        private float _nextInsufficientPopupTime;
 
         private float _nextRepairTime;
 
@@ -164,8 +167,26 @@ namespace Frontline.Buildables
 
             UpdatePreview();
 
-            if (Input.GetMouseButtonDown(0) && _previewValid)
-                ConfirmPlacement();
+            if (Input.GetMouseButtonDown(0))
+            {
+                if (_previewValid)
+                {
+                    ConfirmPlacement();
+                }
+                else
+                {
+                    // Patch 4: insufficient materials popup on failed placement click.
+                    if (string.Equals(_placementBlockedReason, "Insufficient materials", StringComparison.Ordinal))
+                    {
+                        if (Time.unscaledTime >= _nextInsufficientPopupTime)
+                        {
+                            _nextInsufficientPopupTime = Time.unscaledTime + 0.5f;
+                            if (HudMessagePopup.Instance != null)
+                                HudMessagePopup.Instance.Show("Insufficient materials");
+                        }
+                    }
+                }
+            }
         }
 
         private void OnGUI()
@@ -181,35 +202,24 @@ namespace Frontline.Buildables
         private void DrawHelpBottomLeft()
         {
             const int pad = 12;
-            const int width = 420;
-            const int height = 90;
-            var rect = new Rect(pad, Screen.height - height - pad, width, height);
+            const int height = 34;
+            var rect = new Rect(pad, Screen.height - height - pad, Screen.width - pad * 2, height);
+            GUI.Box(rect, "");
 
-            var style = new GUIStyle(GUI.skin.box)
+            var line = "";
+            if (_buildMode)
             {
-                padding = new RectOffset(10, 10, 8, 8)
-            };
-            GUI.Box(rect, "", style);
-
-            var labelStyle = new GUIStyle(GUI.skin.label)
+                if (BuildCatalogPanel.Instance != null && BuildCatalogPanel.Instance.IsOpen)
+                    line = "V: Close | Esc: Close | Click: Select";
+                else
+                    line = "B: Exit | V: Catalog | 1-5: Select | R: Rotate | Wheel: Height | LMB: Place/Repair";
+            }
+            else
             {
-                wordWrap = true
-            };
+                line = "B: Build | Hammer+LMB: Repair | E: Interact | Esc: Close";
+            }
 
-            var mode = _buildMode ? "Build" : "Combat/Harvest";
-            var lines =
-                _buildMode
-                    ? $"Mode: {mode}\n" +
-                      $"Keys: 1 Foundation | 2 Wall | 3 Gate | 4 Storage | 5 Ramp | 0 Repair\n" +
-                      $"R rotate | MouseWheel height ({_heightLevel}) | LMB place | (0: Hammer+LMB repair) | RMB/Esc exit"
-                    : $"Mode: {mode}\n" +
-                      $"B: Build Mode\n" +
-                      $"Hammer+LMB: Repair | E: Open/Close Storage Crate | Esc: Close UI";
-
-            if (_buildMode && !string.IsNullOrWhiteSpace(_placementBlockedReason))
-                lines += $"\nBlocked: {_placementBlockedReason}";
-
-            GUI.Label(new Rect(rect.x + 10, rect.y + 8, rect.width - 20, rect.height - 16), lines, labelStyle);
+            GUI.Label(new Rect(rect.x + 10, rect.y + 7, rect.width - 20, rect.height - 14), line);
         }
 
         private void DrawSelectedBottomRight()
@@ -402,21 +412,31 @@ namespace Frontline.Buildables
 
         private void EnsurePreview()
         {
-            if (_preview != null)
+            if (_preview != null && string.Equals(_previewItemId, _selectedItemId, StringComparison.Ordinal))
             {
                 ApplyPreviewShape();
                 return;
             }
 
-            _preview = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            _preview.name = "_BuildPreview";
-            _preview.layer = 2; // Ignore Raycast
+            DestroyPreview();
+            _previewItemId = _selectedItemId ?? "";
 
-            var col = _preview.GetComponent<Collider>();
-            if (col != null)
-                col.enabled = false;
+            if (_selectedItemId == "build_ramp")
+            {
+                _preview = CreateRampPreview();
+            }
+            else
+            {
+                _preview = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                _preview.name = "_BuildPreview";
+                _preview.layer = 2; // Ignore Raycast
 
-            _previewRenderer = _preview.GetComponent<Renderer>();
+                var col = _preview.GetComponent<Collider>();
+                if (col != null)
+                    col.enabled = false;
+            }
+
+            _previewRenderer = _preview != null ? _preview.GetComponentInChildren<Renderer>() : null;
             if (_previewRenderer != null)
             {
                 _previewMaterial = new Material(Shader.Find("Standard"));
@@ -434,12 +454,17 @@ namespace Frontline.Buildables
             _preview = null;
             _previewRenderer = null;
             _previewMaterial = null;
+            _previewItemId = "";
         }
 
         private void ApplyPreviewShape()
         {
             if (_preview == null)
                 return;
+            // Ramp preview uses its own geometry; other previews are scaled cubes.
+            if (_selectedItemId == "build_ramp")
+                return;
+
             GetShape(_selectedItemId, out var scale, out _);
             _preview.transform.localScale = scale;
         }
@@ -479,7 +504,10 @@ namespace Frontline.Buildables
             _previewPos = p;
             _previewRot = Quaternion.Euler(0f, 90f * _rotationSteps, 0f);
 
-            _preview.transform.SetPositionAndRotation(_previewPos, _previewRot);
+            // Ramp root is modeled with its bottom at y=0 in local space, so offset the preview down by halfY
+            // while keeping _previewPos (center) consistent for validity checks.
+            var previewRootPos = _selectedItemId == "build_ramp" ? (_previewPos - Vector3.up * halfY) : _previewPos;
+            _preview.transform.SetPositionAndRotation(previewRootPos, _previewRot);
 
             _previewValid = _previewSupported && IsPlacementValid(_selectedItemId, _previewPos, _previewRot);
 
@@ -636,6 +664,10 @@ namespace Frontline.Buildables
 
         private static GameObject SpawnRamp(Vector3 pos, Quaternion rot)
         {
+            // Build preview/validity uses pos as the center of the shape like other buildables.
+            // The actual ramp root is modeled with its bottom at y=0, so shift it down by half height.
+            pos.y -= (GetRampPreviewScale().y * 0.5f);
+
             var root = new GameObject("build_ramp");
             root.layer = 0;
             root.transform.SetPositionAndRotation(pos, rot);
@@ -666,6 +698,46 @@ namespace Frontline.Buildables
             var r = body.GetComponent<Renderer>();
             if (r != null)
                 r.material = GetPlaceholderMaterialForBuildable("build_ramp", new Color(0.55f, 0.40f, 0.20f));
+
+            return root;
+        }
+
+        private static Vector3 GetRampPreviewScale()
+        {
+            // Must match GetShape(build_ramp).y for consistent placement offsets.
+            return new Vector3(2.0f, 1.25f, 2.0f);
+        }
+
+        private static GameObject CreateRampPreview()
+        {
+            var root = new GameObject("_BuildPreview_Ramp");
+            root.layer = 2; // Ignore Raycast
+
+            // Reuse the runtime ramp geometry, but disable colliders.
+            // (SpawnRamp can't be used directly because it names the object build_ramp and sets layer 0.)
+            const float width = 2.0f;
+            const float run = 2.0f;
+            var rise = WorldConstants.WORLD_LEVEL_HEIGHT;
+            var angleDeg = Mathf.Atan2(rise, run) * Mathf.Rad2Deg;
+            var slopeLen = Mathf.Sqrt(run * run + rise * rise);
+            const float thickness = 0.25f;
+
+            var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            body.name = "RampBody";
+            body.layer = 2;
+            body.transform.SetParent(root.transform, false);
+            body.transform.localScale = new Vector3(width, thickness, slopeLen);
+            body.transform.localRotation = Quaternion.Euler(-angleDeg, 0f, 0f);
+
+            var a = angleDeg * Mathf.Deg2Rad;
+            var t = thickness * 0.5f;
+            var l = slopeLen * 0.5f;
+            var centerY = t * Mathf.Cos(a) + l * Mathf.Sin(a);
+            body.transform.localPosition = new Vector3(0f, centerY, 0f);
+
+            var col = body.GetComponent<Collider>();
+            if (col != null)
+                col.enabled = false;
 
             return root;
         }

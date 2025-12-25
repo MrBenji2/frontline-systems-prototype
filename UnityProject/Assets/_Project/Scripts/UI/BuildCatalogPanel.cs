@@ -87,7 +87,7 @@ namespace Frontline.UI
             var rect = new Rect((Screen.width - panelWidth) * 0.5f, pad, panelWidth, panelHeight);
 
             GUILayout.BeginArea(rect, GUI.skin.window);
-            GUILayout.Label($"Build Catalog (V toggles, Esc closes)");
+            GUILayout.Label("BUILD CATALOG (V)");
 
             var buildables = GetBuildableDefs();
             if (buildables.Count == 0)
@@ -104,20 +104,26 @@ namespace Frontline.UI
             GUILayout.BeginHorizontal();
 
             // Left list.
-            GUILayout.BeginVertical(GUILayout.Width(280));
+            GUILayout.BeginVertical(GUILayout.Width(260));
             _leftScroll = GUILayout.BeginScrollView(_leftScroll);
             for (var i = 0; i < buildables.Count; i++)
             {
                 var def = buildables[i];
-                var isSel = i == _selectedIdx;
                 var locked = !IsUnlocked(def);
 
-                GUILayout.BeginHorizontal();
-                GUILayout.Box(GetIcon(def.id), GUILayout.Width(24), GUILayout.Height(24));
-                var label = $"{def.displayName} ({def.id})" + (locked ? " [LOCKED]" : "");
-                if (GUILayout.Button(label, isSel ? GUI.skin.button : GUI.skin.button))
+                var label = def.displayName + (locked ? " (LOCKED)" : "");
+                var prev = GUI.enabled;
+                GUI.enabled = !locked;
+                if (GUILayout.Button(label, GUILayout.Height(44)))
+                {
                     _selectedIdx = i;
-                GUILayout.EndHorizontal();
+                    if (BuildablesService.Instance != null)
+                    {
+                        BuildablesService.Instance.SetSelectedBuildItem(def.id);
+                        SelectionUIState.SetSelected($"Selected: {def.id}");
+                    }
+                }
+                GUI.enabled = prev;
             }
             GUILayout.EndScrollView();
             GUILayout.EndVertical();
@@ -147,14 +153,7 @@ namespace Frontline.UI
                 GUILayout.Label("Insufficient materials (selection allowed, placement will be blocked)");
 
             GUILayout.Space(8);
-            var prev = GUI.enabled;
-            GUI.enabled = BuildablesService.Instance != null;
-            if (GUILayout.Button($"Select: {selected.id}", GUILayout.Width(200)))
-            {
-                BuildablesService.Instance.SetSelectedBuildItem(selected.id);
-                SelectionUIState.SetSelected($"Selected: {selected.id}");
-            }
-            GUI.enabled = prev;
+            GUILayout.Label("Click an entry on the left to select.");
 
             GUILayout.EndScrollView();
             GUILayout.EndVertical();
