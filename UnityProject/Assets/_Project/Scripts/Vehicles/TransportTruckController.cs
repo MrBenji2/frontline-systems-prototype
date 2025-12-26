@@ -251,11 +251,15 @@ namespace Frontline.Vehicles
             v = _rb.velocity;
             planar = new Vector3(v.x, 0f, v.z);
             var sideways = Vector3.Dot(planar, right);
-            _rb.AddForce(-right * (sideways * _currentGrip), ForceMode.Acceleration);
+            // Include legacy lateralDamping as an additive stability term (keeps older tuning relevant).
+            var lat = Mathf.Max(0f, _currentGrip) + Mathf.Max(0f, lateralDamping);
+            _rb.AddForce(-right * (sideways * lat), ForceMode.Acceleration);
 
             // Engine drag (settles smoothly when you let go).
             var fwdVel = Vector3.Dot(planar, forward);
-            _rb.AddForce(-forward * (fwdVel * engineDrag), ForceMode.Acceleration);
+            // Include legacy forwardDrag as an additive stability term.
+            var fwdDrag = Mathf.Max(0f, engineDrag) + Mathf.Max(0f, forwardDrag);
+            _rb.AddForce(-forward * (fwdVel * fwdDrag), ForceMode.Acceleration);
 
             // Part B: speed-correct steering (scale with speed, influenced by velocity direction).
             v = _rb.velocity;
