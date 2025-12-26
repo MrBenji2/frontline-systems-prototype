@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using Frontline.Tactical;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -57,6 +58,7 @@ namespace Frontline.Vehicles
             // Keep single active truck for v1.
             if (ActiveTruck != null)
             {
+                ActiveTruck.ForceUnoccupiedForLoad();
                 ActiveTruck.transform.position = pos;
                 ActiveTruck.transform.rotation = Quaternion.identity;
                 return;
@@ -107,7 +109,7 @@ namespace Frontline.Vehicles
                 if (!snap.truck.exists)
                 {
                     if (ActiveTruck != null)
-                        Destroy(ActiveTruck.gameObject);
+                        RemoveTruckSafely(ActiveTruck);
                     _active = null;
                     return;
                 }
@@ -117,6 +119,9 @@ namespace Frontline.Vehicles
 
                 if (ActiveTruck == null)
                     return;
+
+                // Part A.3: always load as unoccupied.
+                ActiveTruck.ForceUnoccupiedForLoad();
 
                 ActiveTruck.transform.SetPositionAndRotation(snap.truck.position, snap.truck.rotation);
                 ActiveTruck.SetCurrentHpForLoad(snap.truck.currentHp);
@@ -165,6 +170,28 @@ namespace Frontline.Vehicles
 
             go.name = "TransportTruck";
             return go.GetComponent<TransportTruckController>();
+        }
+
+        /// <summary>
+        /// Part B: single anti-dupe removal path for non-damage deletes/clears.
+        /// </summary>
+        public void RemoveTruckSafely(TransportTruckController truck)
+        {
+            if (truck == null)
+                return;
+
+            truck.ForceUnoccupiedForLoad();
+            truck.DumpContentsToDestroyedPoolAndClear();
+            Destroy(truck.gameObject);
+        }
+
+        public void ClearAllTrucks()
+        {
+            var trucks = FindObjectsByType<TransportTruckController>(FindObjectsSortMode.None).ToList();
+            foreach (var t in trucks)
+                RemoveTruckSafely(t);
+
+            _active = null;
         }
     }
 }
