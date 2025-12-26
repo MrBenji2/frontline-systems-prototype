@@ -81,6 +81,12 @@ namespace Frontline.Crafting
                 // Gas can (single tier for now; crafted from non-diesel so it can bootstrap)
                 // Milestone 4 station choice: Workbench
                 Make(CraftingStationType.Workbench, "tool_gas_can", "Gas Can", ToolType.GasCan, ToolTier.None, 32 * 8, 10, (Iron, 8), (Wood, 2)),
+
+                // Milestone 6.1: Melee weapons (Workbench).
+                // Durability: keep modest; upgrade restores to full.
+                Make(CraftingStationType.Workbench, "weapon_knife", "Knife", ToolType.MeleeWeapon, ToolTier.None, 36 * 8, 6, (Wood, 6), (Iron, 2)),
+                Make(CraftingStationType.Workbench, "weapon_sword", "Sword", ToolType.MeleeWeapon, ToolTier.None, 48 * 8, 2, (Wood, 10), (Iron, 4)),
+                Make(CraftingStationType.Workbench, "weapon_pole", "Pole", ToolType.MeleeWeapon, ToolTier.None, 60 * 8, 3, (Wood, 14), (Iron, 6)),
             };
         }
 

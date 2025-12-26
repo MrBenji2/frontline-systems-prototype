@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using Frontline.Crafting;
 using Frontline.Economy;
 using UnityEngine;
@@ -36,6 +37,8 @@ namespace Frontline.Gameplay
         private readonly List<ToolInstance> _tools = new();
         private int _equippedToolIndex = -1;
 
+        private string ToolsSavePath => Path.Combine(Application.persistentDataPath, "player_tools.json");
+
         public IReadOnlyDictionary<string, int> Resources => _resources;
         public IReadOnlyList<ToolInstance> Tools => _tools;
 
@@ -57,6 +60,75 @@ namespace Frontline.Gameplay
 
             if (grantStarterWood && _resources.Count == 0 && _tools.Count == 0)
                 AddResource(ToolRecipes.Wood, starterWoodAmount);
+        }
+
+        [Serializable]
+        private sealed class PlayerToolsSnapshot
+        {
+            public int equippedToolIndex = -1;
+            public List<ToolInstance> tools = new();
+        }
+
+        public void NotifyChanged()
+        {
+            Changed?.Invoke();
+        }
+
+        /// <summary>
+        /// Milestone 6.1: minimal persistence for tool/weapons durability via explicit Save/Load actions.
+        /// </summary>
+        public void SaveToolsToDisk()
+        {
+            try
+            {
+                var snap = new PlayerToolsSnapshot
+                {
+                    equippedToolIndex = _equippedToolIndex,
+                    tools = _tools.Where(t => t != null).ToList()
+                };
+
+                var json = JsonUtility.ToJson(snap, true);
+                File.WriteAllText(ToolsSavePath, json);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"PlayerInventory: failed to save tools '{ToolsSavePath}': {ex.Message}");
+            }
+        }
+
+        public void LoadToolsFromDisk()
+        {
+            try
+            {
+                if (!File.Exists(ToolsSavePath))
+                    return;
+
+                var json = File.ReadAllText(ToolsSavePath);
+                var snap = JsonUtility.FromJson<PlayerToolsSnapshot>(json);
+                if (snap == null)
+                    return;
+
+                _tools.Clear();
+                if (snap.tools != null)
+                {
+                    foreach (var t in snap.tools)
+                    {
+                        if (t == null || string.IsNullOrWhiteSpace(t.itemId))
+                            continue;
+                        t.maxDurability = Mathf.Max(1, t.maxDurability);
+                        t.currentDurability = Mathf.Clamp(t.currentDurability, 0, t.maxDurability);
+                        t.hitDamage = Mathf.Max(1, t.hitDamage);
+                        _tools.Add(t);
+                    }
+                }
+
+                _equippedToolIndex = _tools.Count == 0 ? -1 : Mathf.Clamp(snap.equippedToolIndex, -1, _tools.Count - 1);
+                Changed?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"PlayerInventory: failed to load tools '{ToolsSavePath}': {ex.Message}");
+            }
         }
 
         public int GetResource(string resourceId)

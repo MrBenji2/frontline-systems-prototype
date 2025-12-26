@@ -34,6 +34,12 @@ namespace Frontline.Definitions
         public string id = "";
         public string displayName = "";
         public List<CraftCost> craftCosts = new();
+
+        // Milestone 6.1 melee stats (safe defaults for older defs).
+        public float rangeMeters;
+        public int damage;
+        public float speed;
+        public int maxDurability;
     }
 
     [Serializable]

@@ -10,6 +10,7 @@ using Frontline.Combat;
 using UnityEngine;
 using Frontline.Crafting;
 using Frontline.Gameplay;
+using Frontline.Vehicles;
 
 namespace Frontline.UI
 {
@@ -147,9 +148,21 @@ namespace Frontline.UI
                 if (GUILayout.Button($"Toggle Build Mode ({(BuildablesService.Instance.IsBuildModeActive ? "ON" : "OFF")})", GUILayout.Width(220)))
                     BuildablesService.Instance.ToggleBuildMode();
                 if (GUILayout.Button("Save World", GUILayout.Width(120)))
+                {
                     BuildablesService.Instance.SaveWorld();
+                    if (TransportTruckService.Instance != null)
+                        TransportTruckService.Instance.SaveWorld();
+                    if (PlayerInventoryService.Instance != null)
+                        PlayerInventoryService.Instance.SaveToolsToDisk();
+                }
                 if (GUILayout.Button("Load World", GUILayout.Width(120)))
+                {
                     BuildablesService.Instance.LoadWorld();
+                    if (TransportTruckService.Instance != null)
+                        TransportTruckService.Instance.LoadWorld();
+                    if (PlayerInventoryService.Instance != null)
+                        PlayerInventoryService.Instance.LoadToolsFromDisk();
+                }
                 GUILayout.EndHorizontal();
 
                 GUILayout.BeginHorizontal();
@@ -157,6 +170,16 @@ namespace Frontline.UI
                     BuildablesService.Instance.ClearAllBuildablesDev();
                 GUILayout.EndHorizontal();
             }
+
+            GUILayout.Space(6);
+            GUILayout.Label("Milestone 6 (Transport Truck v1):");
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Spawn Truck", GUILayout.Width(180)))
+            {
+                if (TransportTruckService.Instance != null)
+                    TransportTruckService.Instance.SpawnNearPlayer();
+            }
+            GUILayout.EndHorizontal();
 
             GUILayout.Space(6);
             GUILayout.Label("Milestone 5.3 (Skills - DEV):");

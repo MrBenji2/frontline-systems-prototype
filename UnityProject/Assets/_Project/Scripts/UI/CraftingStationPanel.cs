@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
+using Frontline.Combat;
 using Frontline.Crafting;
 using Frontline.Gameplay;
+using Frontline.Economy;
 using Frontline.World;
 using UnityEngine;
 
@@ -109,18 +111,106 @@ namespace Frontline.UI
             foreach (var recipe in ToolRecipes.All.Where(r => r != null && r.stationType == stationType))
             {
                 GUILayout.BeginHorizontal();
-                GUILayout.Label(recipe.displayName, GUILayout.Width(170));
-                GUILayout.Label(CostString(recipe.costs), GUILayout.Width(200));
+                GUILayout.Label(recipe.displayName, GUILayout.Width(150));
+                GUILayout.Label(CostString(recipe.costs), GUILayout.Width(180));
 
-                var canCraft = inv.CanAfford(recipe.costs);
-                var prev = GUI.enabled;
-                GUI.enabled = canCraft;
+                // Patch 6.1: optional melee stat line.
+                if (MeleeWeaponStats.TryGet(recipe.itemId, out var s))
+                    GUILayout.Label($"DMG {s.damage} | RNG {s.rangeMeters:0.#}m | SPD {s.speed:0.#}", GUILayout.Width(150));
+                else
+                    GUILayout.Label("", GUILayout.Width(150));
+
                 if (GUILayout.Button("Craft", GUILayout.Width(70)))
                     CraftingService.TryCraft(recipe);
-                GUI.enabled = prev;
 
                 GUILayout.EndHorizontal();
             }
+
+            // Patch 6.1: melee weapon upgrade (Workbench only).
+            if (stationType == CraftingStationType.Workbench)
+                DrawWeaponUpgrade();
+        }
+
+        private void DrawWeaponUpgrade()
+        {
+            var inv = PlayerInventoryService.Instance;
+            if (inv == null)
+                return;
+
+            // Find a candidate melee weapon: prefer equipped, else first in inventory.
+            var idx = inv.EquippedToolIndex;
+            var t = inv.EquippedTool;
+            if (t == null || !MeleeWeaponStats.TryGetUpgradeTarget(t.itemId, out _))
+            {
+                idx = -1;
+                t = null;
+                for (var i = 0; i < inv.Tools.Count; i++)
+                {
+                    var tool = inv.Tools[i];
+                    if (tool == null)
+                        continue;
+                    if (MeleeWeaponStats.TryGetUpgradeTarget(tool.itemId, out _))
+                    {
+                        idx = i;
+                        t = tool;
+                        break;
+                    }
+                }
+            }
+
+            if (t == null || idx < 0)
+                return;
+
+            if (!MeleeWeaponStats.TryGetUpgradeTarget(t.itemId, out var upgradeToId))
+                return;
+
+            var toRecipe = ToolRecipes.Get(upgradeToId);
+            if (toRecipe == null)
+                return;
+
+            // Simple fixed upgrade cost (non-zero wood+iron).
+            var upgradeCosts = new List<ToolRecipe.Cost>
+            {
+                new ToolRecipe.Cost { resourceId = ToolRecipes.Wood, amount = 4 },
+                new ToolRecipe.Cost { resourceId = ToolRecipes.Iron, amount = 2 },
+            };
+
+            GUILayout.Space(8);
+            GUILayout.Label("Upgrade (restores to full durability):");
+            GUILayout.BeginHorizontal();
+            GUILayout.Label($"{t.itemId} → {upgradeToId}", GUILayout.Width(180));
+            GUILayout.Label(CostString(upgradeCosts), GUILayout.Width(180));
+
+            if (GUILayout.Button($"Upgrade", GUILayout.Width(70)))
+            {
+                if (!inv.CanAfford(upgradeCosts))
+                {
+                    SelectionUIState.SetSelected("Insufficient materials");
+                }
+                else
+                {
+                    inv.Spend(upgradeCosts);
+
+                    // Replace in-place to preserve inventory size/indexing.
+                    t.itemId = toRecipe.itemId;
+                    t.toolType = toRecipe.toolType;
+                    t.tier = toRecipe.tier;
+                    t.maxDurability = Mathf.Max(1, toRecipe.maxDurability);
+                    t.currentDurability = t.maxDurability; // full repair
+                    t.hitDamage = Mathf.Max(1, toRecipe.hitDamage);
+
+                    inv.NotifyChanged();
+
+                    // Pool integration for the new crafted item (upgrade counts as crafting output).
+                    if (CreatedPoolService.Instance != null)
+                        CreatedPoolService.Instance.RegisterCreated(toRecipe.itemId, 1);
+                    if (DestroyedPoolService.Instance != null)
+                        DestroyedPoolService.Instance.MarkCrafted(toRecipe.itemId);
+
+                    SelectionUIState.SetSelected($"Upgraded to {toRecipe.itemId} (full durability)");
+                }
+            }
+            GUILayout.EndHorizontal();
         }
 
         private static string CostString(List<ToolRecipe.Cost> costs)
