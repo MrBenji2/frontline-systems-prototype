@@ -11,6 +11,7 @@ using UnityEngine;
 using Frontline.Crafting;
 using Frontline.Gameplay;
 using Frontline.Vehicles;
+using Frontline.World;
 
 namespace Frontline.UI
 {
@@ -182,6 +183,30 @@ namespace Frontline.UI
             GUILayout.EndHorizontal();
 
             GUILayout.Space(6);
+            GUILayout.Label("Milestone 6.3 (Safety + Test Tools):");
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Spawn Target Dummy", GUILayout.Width(180)))
+                SpawnTargetDummyNearPlayer();
+            if (GUILayout.Button("Reset All Dummies", GUILayout.Width(180)))
+                ResetAllDummies();
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Damage Truck -25", GUILayout.Width(180)))
+                DamageTruckNearestOrOccupied(25);
+            if (GUILayout.Button("Repair Truck +25", GUILayout.Width(180)))
+                RepairTruckNearestOrOccupied(25);
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Clear All Trucks", GUILayout.Width(180)))
+            {
+                if (TransportTruckService.Instance != null)
+                    TransportTruckService.Instance.ClearAllTrucks();
+            }
+            GUILayout.EndHorizontal();
+
+            GUILayout.Space(6);
             GUILayout.Label("Milestone 5.3 (Skills - DEV):");
             if (PlayerSkillsService.Instance == null)
             {
@@ -247,6 +272,99 @@ namespace Frontline.UI
                 SelectionUIState.SetSelected($"Selected: {id}");
             }
             GUILayout.EndScrollView();
+        }
+
+        private static void SpawnTargetDummyNearPlayer()
+        {
+            var player = Object.FindFirstObjectByType<Frontline.Tactical.TacticalPlayerController>();
+            if (player == null)
+                return;
+
+            var basePos = player.transform.position + new Vector3(2f, 0f, -2f);
+            basePos = SnapToGround(basePos);
+
+            var prefab = Resources.Load<GameObject>("TargetDummy");
+            GameObject go;
+            if (prefab != null)
+            {
+                go = Object.Instantiate(prefab, basePos, Quaternion.identity);
+            }
+            else
+            {
+                go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                go.name = "TargetDummy";
+                go.transform.position = basePos;
+                go.AddComponent<Health>();
+                go.AddComponent<TargetDummy>();
+            }
+        }
+
+        private static void ResetAllDummies()
+        {
+            foreach (var d in Object.FindObjectsByType<TargetDummy>(FindObjectsSortMode.None))
+            {
+                if (d != null)
+                    d.ResetToFull();
+            }
+        }
+
+        private static void DamageTruckNearestOrOccupied(int amount)
+        {
+            var truck = FindTruckNearestOrOccupied();
+            if (truck == null)
+                return;
+            truck.DebugDamage(amount);
+        }
+
+        private static void RepairTruckNearestOrOccupied(int amount)
+        {
+            var truck = FindTruckNearestOrOccupied();
+            if (truck == null)
+                return;
+            truck.DebugRepair(amount);
+        }
+
+        private static TransportTruckController FindTruckNearestOrOccupied()
+        {
+            // Prefer occupied (so testing while driving is easy).
+            foreach (var t in Object.FindObjectsByType<TransportTruckController>(FindObjectsSortMode.None))
+            {
+                if (t != null && t.IsOccupied)
+                    return t;
+            }
+
+            var player = Object.FindFirstObjectByType<Frontline.Tactical.TacticalPlayerController>();
+            var playerPos = player != null ? player.transform.position : Vector3.zero;
+            playerPos.y = 0f;
+
+            TransportTruckController best = null;
+            var bestDist = float.MaxValue;
+            foreach (var t in Object.FindObjectsByType<TransportTruckController>(FindObjectsSortMode.None))
+            {
+                if (t == null)
+                    continue;
+                var p = t.transform.position;
+                p.y = 0f;
+                var d = Vector3.Distance(playerPos, p);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    best = t;
+                }
+            }
+            return best;
+        }
+
+        private static Vector3 SnapToGround(Vector3 pos)
+        {
+            var origin = pos + Vector3.up * 50f;
+            if (Physics.Raycast(origin, Vector3.down, out var hit, 200f, ~0, QueryTriggerInteraction.Ignore))
+            {
+                pos.y = hit.point.y + 1.0f;
+                return pos;
+            }
+            pos.y = Mathf.Max(pos.y, 1.0f);
+            return pos;
         }
 
         private void EnsureDevSpawnIds()

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Frontline.Crafting;
 using Frontline.Gameplay;
+using Frontline.UI;
 using UnityEngine;
 
 namespace Frontline.Buildables

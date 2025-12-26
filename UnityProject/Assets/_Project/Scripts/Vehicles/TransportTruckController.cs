@@ -78,6 +78,7 @@ namespace Frontline.Vehicles
 
         private TacticalPlayerController _driver;
         private CharacterController _driverCc;
+        private PlayerCombatVitals _driverVitals;
         private readonly List<Behaviour> _disabledWhileDriving = new();
         private Renderer[] _driverRenderers;
 
@@ -129,6 +130,10 @@ namespace Frontline.Vehicles
         {
             if (_health != null)
                 _health.Died -= OnDied;
+
+            // Safety: never leave player stuck parented/disabled if this truck is destroyed externally.
+            if (IsOccupied)
+                ForceExitAndClear(stopTruck: true);
         }
 
         private void Update()
@@ -146,6 +151,13 @@ namespace Frontline.Vehicles
             }
             else
             {
+                // Safety: if driver is dead or disabled, force-exit and stop the truck.
+                if (_driver == null || !_driver.gameObject.activeInHierarchy || (_driverVitals != null && _driverVitals.IsDead))
+                {
+                    ForceExitAndClear(stopTruck: true);
+                    return;
+                }
+
                 // Keep driver pinned to seat (camera continues to track player).
                 if (seatAnchor != null)
                     _driver.transform.SetPositionAndRotation(seatAnchor.position, seatAnchor.rotation);
@@ -239,11 +251,15 @@ namespace Frontline.Vehicles
             v = _rb.velocity;
             planar = new Vector3(v.x, 0f, v.z);
             var sideways = Vector3.Dot(planar, right);
-            _rb.AddForce(-right * (sideways * _currentGrip), ForceMode.Acceleration);
+            // Include legacy lateralDamping as an additive stability term (keeps older tuning relevant).
+            var lat = Mathf.Max(0f, _currentGrip) + Mathf.Max(0f, lateralDamping);
+            _rb.AddForce(-right * (sideways * lat), ForceMode.Acceleration);
 
             // Engine drag (settles smoothly when you let go).
             var fwdVel = Vector3.Dot(planar, forward);
-            _rb.AddForce(-forward * (fwdVel * engineDrag), ForceMode.Acceleration);
+            // Include legacy forwardDrag as an additive stability term.
+            var fwdDrag = Mathf.Max(0f, engineDrag) + Mathf.Max(0f, forwardDrag);
+            _rb.AddForce(-forward * (fwdVel * fwdDrag), ForceMode.Acceleration);
 
             // Part B: speed-correct steering (scale with speed, influenced by velocity direction).
             v = _rb.velocity;
@@ -447,6 +463,10 @@ namespace Frontline.Vehicles
 
         private void OnDied(Health h)
         {
+            // Part A.1: destroyed while occupied -> force-exit before object is destroyed.
+            if (IsOccupied)
+                ForceExitAndClear(stopTruck: true);
+
             if (_registeredContents)
                 return;
             _registeredContents = true;
@@ -463,6 +483,52 @@ namespace Frontline.Vehicles
             }
 
             _items.Clear();
+        }
+
+        /// <summary>
+        /// Part B: anti-dupe removal path for deleting a truck outside normal damage death.
+        /// Dumps storage into DestroyedPool (once) and clears inventory.
+        /// </summary>
+        public void DumpContentsToDestroyedPoolAndClear()
+        {
+            if (_registeredContents)
+                return;
+            _registeredContents = true;
+
+            if (DestroyedPoolService.Instance != null)
+            {
+                foreach (var kv in _items)
+                {
+                    if (string.IsNullOrWhiteSpace(kv.Key) || kv.Value <= 0)
+                        continue;
+                    DestroyedPoolService.Instance.RegisterDestroyed(kv.Key, kv.Value);
+                }
+            }
+
+            _items.Clear();
+        }
+
+        public void DebugDamage(int amount)
+        {
+            if (_health == null || _health.IsDead)
+                return;
+            _health.ApplyDamage(Mathf.Max(0, amount), gameObject);
+        }
+
+        public void DebugRepair(int amount)
+        {
+            if (_health == null || _health.IsDead)
+                return;
+            _health.Restore(Mathf.Max(0, amount));
+        }
+
+        /// <summary>
+        /// Part A.3: load sanity - force truck to unoccupied state.
+        /// </summary>
+        public void ForceUnoccupiedForLoad()
+        {
+            if (IsOccupied)
+                ForceExitAndClear(stopTruck: true);
         }
 
         private TacticalPlayerController FindDriverCandidate()
@@ -493,6 +559,7 @@ namespace Frontline.Vehicles
 
             _driver = player;
             _driverCc = player.GetComponent<CharacterController>();
+            _driverVitals = player.GetComponent<PlayerCombatVitals>();
             _driverRenderers = player.GetComponentsInChildren<Renderer>(true);
 
             _disabledWhileDriving.Clear();
@@ -511,7 +578,7 @@ namespace Frontline.Vehicles
                     || b is CraftingStationInteractor
                     || b is LootInteractor
                     || b is PlayerCombatController
-                    || b is PlayerCombatVitals)
+                    )
                 {
                     b.enabled = false;
                     _disabledWhileDriving.Add(b);
@@ -539,14 +606,25 @@ namespace Frontline.Vehicles
         {
             if (!IsOccupied)
                 return;
+            ForceExitAndClear(stopTruck: false);
+        }
 
+        private void ForceExitAndClear(bool stopTruck)
+        {
             var player = _driver;
             var cc = _driverCc;
             var renderers = _driverRenderers;
 
             _driver = null;
             _driverCc = null;
+            _driverVitals = null;
             _driverRenderers = null;
+
+            if (stopTruck && _rb != null)
+            {
+                _rb.velocity = Vector3.zero;
+                _rb.angularVelocity = Vector3.zero;
+            }
 
             if (player != null)
                 player.transform.SetParent(null, worldPositionStays: true);
@@ -566,6 +644,10 @@ namespace Frontline.Vehicles
                     b.enabled = true;
             }
             _disabledWhileDriving.Clear();
+
+            // Close truck UI if it was open.
+            if (TransportTruckPanel.Instance != null && TransportTruckPanel.Instance.IsOpen)
+                TransportTruckPanel.Instance.Close();
 
             // Place at safe exit position.
             if (player != null)

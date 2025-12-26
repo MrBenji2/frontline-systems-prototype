@@ -12,6 +12,8 @@ namespace Frontline.UI
     /// </summary>
     public sealed class InventoryCraftingPanel : MonoBehaviour
     {
+        private const string ModalId = "inventory_panel";
+
         [SerializeField] private bool visible = true;
         [SerializeField] private KeyCode toggleKey = KeyCode.I;
 
@@ -27,10 +29,49 @@ namespace Frontline.UI
             ToolRecipes.Diesel
         };
 
+        private void Awake()
+        {
+            // If this panel starts visible, treat it as a gameplay modal for input lock rules.
+            if (visible)
+                Open();
+        }
+
         private void Update()
         {
             if (Input.GetKeyDown(toggleKey))
-                visible = !visible;
+            {
+                if (!visible)
+                {
+                    // Don't open if another gameplay modal is open.
+                    if (UiModalManager.Instance != null && UiModalManager.Instance.HasOpenModal)
+                        return;
+                    Open();
+                }
+                else
+                {
+                    Close();
+                }
+            }
+
+            // If closed externally (Esc via UiModalManager), stop drawing.
+            if (visible && UiModalManager.Instance != null && UiModalManager.Instance.HasOpenModal == false)
+            {
+                // Inventory is not guaranteed to be the current modal, so don't auto-close here.
+            }
+        }
+
+        private void Open()
+        {
+            visible = true;
+            if (UiModalManager.Instance != null)
+                UiModalManager.Instance.RegisterOpen(ModalId, Close, openedByInteract: false);
+        }
+
+        private void Close()
+        {
+            visible = false;
+            if (UiModalManager.Instance != null)
+                UiModalManager.Instance.RegisterClosed(ModalId);
         }
 
         private void OnGUI()
