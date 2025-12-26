@@ -68,7 +68,7 @@ namespace Frontline.Loot
             if (lifetimeSeconds > 0f)
             {
                 var lifetime = go.AddComponent<GroundLootLifetime>();
-                lifetime.Configure(lifetimeSeconds, convertToSalvage: true, salvageAmt: 1);
+                lifetime.Configure(lifetimeSeconds, toSalvage: true, salvageAmt: 1);
             }
 
             return p;
