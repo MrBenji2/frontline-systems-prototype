@@ -75,6 +75,16 @@ namespace Frontline.Vehicles
         [Tooltip("Acceleration reduction per 100 units of cargo weight (0-1).")]
         [SerializeField] private float weightAccelPenaltyPer100 = 0.08f;
 
+        [Header("Milestone 7.3: Collision Damage")]
+        [Tooltip("Minimum speed (m/s) required for collision damage.")]
+        [SerializeField] private float collisionMinSpeed = 3f;
+        [Tooltip("Minimum impulse force for collision damage.")]
+        [SerializeField] private float collisionMinImpulse = 500f;
+        [Tooltip("Damage dealt per 100 units of impulse force.")]
+        [SerializeField] private float collisionDamagePer100Impulse = 5f;
+        [Tooltip("Cooldown between collision damage events (seconds).")]
+        [SerializeField] private float collisionDamageCooldown = 0.5f;
+
         [Header("Anchors")]
         [SerializeField] private Transform seatAnchor;
         [SerializeField] private Transform exitPoint;
@@ -99,6 +109,9 @@ namespace Frontline.Vehicles
         private float _currentGrip;
         private bool _handbrake;
         private bool _inputsLocked;
+
+        // Milestone 7.3: Collision damage cooldown tracking.
+        private float _lastCollisionDamageTime;
 
         public bool IsOccupied => _driver != null;
 
@@ -179,9 +192,8 @@ namespace Frontline.Vehicles
             var player = FindDriverCandidate();
             if (!IsOccupied)
             {
-                // Patch 7.1E: Use a more generous interaction range check.
-                // Also check if player is looking at the truck (within a cone).
-                if (player != null && Input.GetKeyDown(KeyCode.E))
+                // Milestone 7.3: F = Enter/Exit vehicle.
+                if (player != null && Input.GetKeyDown(KeyCode.F))
                 {
                     var inRange = IsPlayerInRange(player.transform, enterExitDistance * 1.5f); // Slightly more generous
                     var lookingAt = IsPlayerLookingAtTruck(player.transform);
@@ -203,12 +215,13 @@ namespace Frontline.Vehicles
                 if (seatAnchor != null)
                     _driver.transform.SetPositionAndRotation(seatAnchor.position, seatAnchor.rotation);
 
-                if (Input.GetKeyDown(KeyCode.E))
+                // Milestone 7.3: F = Enter/Exit vehicle.
+                if (Input.GetKeyDown(KeyCode.F))
                     Exit();
             }
 
-            // Storage (F): near truck or while inside.
-            if (Input.GetKeyDown(KeyCode.F))
+            // Milestone 7.3: E = Use/Open/Interact (inventory) - near truck or while inside.
+            if (Input.GetKeyDown(KeyCode.E))
             {
                 var canInteract =
                     (IsOccupied) ||
@@ -407,6 +420,66 @@ namespace Frontline.Vehicles
                 $"Speed: {speed:0.00} m/s | Max: {maxSpeed * speedMul:0.0} m/s\n" +
                 $"Throttle: {_throttleInput:0.00} | Steer: {_steerInput:0.00} | Handbrake: {(_handbrake ? "ON" : "off")}\n" +
                 $"Cargo: {cargo:0.0}/{maxCargoWeight:0.0} kg | SpeedMul: {speedMul:0.00}");
+        }
+
+        /// <summary>
+        /// Milestone 7.3: Handle collision damage to both truck and hit target.
+        /// </summary>
+        private void OnCollisionEnter(Collision collision)
+        {
+            if (collision == null || _rb == null || _health == null || _health.IsDead)
+                return;
+
+            // Cooldown to prevent damage spam.
+            if (Time.time - _lastCollisionDamageTime < collisionDamageCooldown)
+                return;
+
+            // Get truck speed at moment of collision.
+            var truckSpeed = new Vector3(_rb.velocity.x, 0f, _rb.velocity.z).magnitude;
+            if (truckSpeed < collisionMinSpeed)
+                return;
+
+            // Get collision impulse.
+            var impulse = collision.impulse.magnitude;
+            if (impulse < collisionMinImpulse)
+                return;
+
+            // Check for exempt objects (ramps and floors don't take damage at low speeds).
+            var hitCollider = collision.collider;
+            if (hitCollider != null)
+            {
+                var buildable = hitCollider.GetComponentInParent<Buildables.Buildable>();
+                if (buildable != null)
+                {
+                    var itemId = buildable.ItemId;
+                    // Ramps and foundations (floors) are exempt at normal driving speeds.
+                    if (itemId == "build_ramp" || itemId == "build_foundation")
+                    {
+                        // Only damage if impulse is very high (crash, not just driving).
+                        if (impulse < collisionMinImpulse * 3f)
+                            return;
+                    }
+                }
+            }
+
+            // Calculate damage based on impulse.
+            var damage = Mathf.CeilToInt((impulse / 100f) * collisionDamagePer100Impulse);
+            damage = Mathf.Max(1, damage);
+
+            // Apply damage to the truck.
+            _health.ApplyDamage(damage, gameObject);
+
+            // Apply damage to the hit object (if it has Health).
+            if (hitCollider != null)
+            {
+                var targetHealth = hitCollider.GetComponentInParent<World.Health>();
+                if (targetHealth != null && !targetHealth.IsDead)
+                {
+                    targetHealth.ApplyDamage(damage, gameObject);
+                }
+            }
+
+            _lastCollisionDamageTime = Time.time;
         }
 
         public bool CanAdd(string itemId, int count)

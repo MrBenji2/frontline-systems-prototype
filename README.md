@@ -299,3 +299,108 @@ Weight values:
 | G | Ground loot converts to Salvage after timeout | PASS |
 | H | Entering truck no longer pushes it | PASS |
 | I | Truck inventory respects weight limits | PASS |
+
+## Milestone 7.3: Storage Inventories, Buildable Adjacency, Camera Lock, Vehicle Interaction & Damage
+
+### Storage Box Inventory System
+
+Storage boxes now have full inventory support:
+- **Weight-based capacity**: 200 kg base (same weight system as player/truck)
+- **Upgradeable**: Click "Upgrade" button to increase capacity by 50 kg per level
+- **Custom labels**: Click "Rename" to set a custom name for each crate
+- **Destruction behavior**:
+  - All contents drop onto the ground as loot pickups
+  - Crate entity moves to Destroyed Pool
+  - No inventory data remains attached
+
+### Storage Box UI
+
+New dedicated storage UI panel (not reused crafting UI):
+- Displays inventory contents with weight/slot usage
+- Shows crate label (editable)
+- "Upgrade" button for capacity increase
+- "Destroy Crate" button to manually destroy
+
+### Buildable Adjacency Improvements
+
+- **Increased tolerance**: Adjacency detection now allows clean placement of:
+  - Floors beside ramps
+  - Floors in front of ramps
+  - Walls beside floors
+  - Floors on top of other floors
+- **Step-up behavior**: Floors (0.25m height) are within player step height (0.5m base)
+  - Players can step up onto floors the same way as ramps
+  - Step height respects weight-based movement rules
+
+### Camera Lock Mode
+
+New optional camera mode (toggle with **C** key):
+- **When enabled**:
+  - Camera locks behind player character
+  - Camera smoothly follows player facing direction
+  - A/D keys strafe left/right (player-relative movement)
+  - Player faces mouse cursor
+- **When disabled**:
+  - Camera behaves as before (free look)
+  - Movement is world-space (default)
+- Visual indicator shows "Camera: LOCKED (C)" when enabled
+
+### Vehicle Interaction Keys
+
+Key bindings clarified and swapped:
+- **F = Enter/Exit vehicle** (was E)
+- **E = Use/Open/Interact** (open truck inventory, was F)
+- More intuitive: F for "getting in/out", E for "using"
+
+### Vehicle Collision Damage
+
+Trucks now deal and receive collision damage:
+- **Damage triggers** when colliding with:
+  - Players
+  - Bots (NPCs)
+  - Player-built structures
+- **Damage applied** to both truck and target
+- **Damage calculation**:
+  - Based on collision impulse force
+  - Minimum speed threshold: 3 m/s
+  - Minimum impulse threshold: 500 units
+  - 5 damage per 100 impulse units
+- **Exemptions**:
+  - Ramps and floors are exempt at normal driving speeds
+  - Only take damage at very high impulse (crash, not driving)
+- **Cooldown**: 0.5s between damage events (prevents spam)
+
+### Controls Update
+
+| Key | Action |
+|-----|--------|
+| C | Toggle camera lock mode |
+| F | Enter/exit truck |
+| E | Open truck inventory (when near truck) |
+| E | Open storage crate (when near crate) |
+
+### Files Changed
+
+1. `StorageCrate.cs` - Weight system, labels, upgrade, destruction drops loot
+2. `StorageCratePanel.cs` - New UI with label editing, weight display, upgrade/destroy buttons
+3. `BuildablesWorldSnapshot.cs` - Added crateLabel and crateUpgradeLevel fields
+4. `BuildablesService.cs` - Save/load crate label and upgrade level, improved adjacency tolerance
+5. `TopDownCameraController.cs` - Camera lock mode implementation
+6. `TacticalPlayerController.cs` - Camera-relative movement, strafe support, mouse cursor facing
+7. `TransportTruckController.cs` - Swapped E/F keys, collision damage system
+8. `TransportTruckPanel.cs` - Updated to close with E, shows weight capacity
+
+### Acceptance Tests
+
+| Test | Description | Status |
+|------|-------------|--------|
+| A | Storage boxes have inventories with limited capacity | PASS |
+| B | Storage box UI shows contents, name, and actions | PASS |
+| C | Destroying a storage box drops its inventory and moves it to destroyed pool | PASS |
+| D | Floors, walls, and ramps can all be placed touching each other cleanly | PASS |
+| E | Player can step up onto floors the same way as ramps | PASS |
+| F | Camera lock toggle works and keeps camera behind player | PASS |
+| G | F enters/exits truck, E opens truck inventory | PASS |
+| H | Truck inventory shows cargo and respects weight limits | PASS |
+| I | Truck collision damages both truck and hit target | PASS |
+| J | Truck can drive up ramps and onto floors without damaging them at low speed | PASS |

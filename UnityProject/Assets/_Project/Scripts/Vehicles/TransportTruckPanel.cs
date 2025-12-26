@@ -70,8 +70,8 @@ namespace Frontline.Vehicles
             if (!IsOpen)
                 return;
 
-            // Esc closes via UiModalManager.
-            if (Input.GetKeyDown(KeyCode.F))
+            // Milestone 7.3: E toggles inventory (Esc also closes via UiModalManager).
+            if (Input.GetKeyDown(KeyCode.E))
                 Close();
         }
 
@@ -91,7 +91,19 @@ namespace Frontline.Vehicles
             GUILayout.Label("Truck Storage");
 
             GUILayout.Space(6);
-            GUILayout.Label($"Capacity: slots {_active.SlotsUsed}/{_active.MaxSlots} | count {_active.TotalCount}/{_active.MaxTotalCount}");
+            // Milestone 7.3: Show weight-based capacity.
+            var weightStr = $"{_active.CurrentCargoWeight:F1}/{_active.MaxCargoWeight:F0} kg";
+            var slotsStr = $"slots {_active.SlotsUsed}/{_active.MaxSlots}";
+            var countStr = $"count {_active.TotalCount}/{_active.MaxTotalCount}";
+            GUILayout.Label($"Capacity: {weightStr} | {slotsStr} | {countStr}");
+
+            if (_active.IsOverloaded)
+            {
+                var prevColor = GUI.color;
+                GUI.color = Color.red;
+                GUILayout.Label("⚠ Over weight capacity!");
+                GUI.color = prevColor;
+            }
 
             GUILayout.Space(8);
             GUILayout.BeginHorizontal();

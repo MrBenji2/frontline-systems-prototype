@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Frontline.Economy;
+using Frontline.Gameplay;
+using Frontline.Loot;
 using Frontline.World;
 using UnityEngine;
 
@@ -14,17 +16,55 @@ namespace Frontline.Buildables
         [SerializeField] private int maxSlots = 12;
         [SerializeField] private int maxTotalCount = 80;
 
+        [Header("Milestone 7.3: Weight System")]
+        [SerializeField] private float maxWeight = 200f;
+        [Tooltip("Upgrade tiers add this much capacity per level.")]
+        [SerializeField] private float upgradeWeightPerLevel = 50f;
+
+        [Header("Milestone 7.3: Label")]
+        [SerializeField] private string crateLabel = "Storage Crate";
+
         private readonly Dictionary<string, int> _items = new(StringComparer.Ordinal);
         private Health _health;
         private bool _registered;
+        private int _upgradeLevel = 0;
 
         public int MaxSlots => maxSlots;
         public int MaxTotalCount => maxTotalCount;
+
+        /// <summary>
+        /// Milestone 7.3: Maximum weight capacity (including upgrades).
+        /// </summary>
+        public float MaxWeight => maxWeight + (_upgradeLevel * upgradeWeightPerLevel);
+
+        /// <summary>
+        /// Milestone 7.3: Current upgrade level (0 = base).
+        /// </summary>
+        public int UpgradeLevel => _upgradeLevel;
+
+        /// <summary>
+        /// Milestone 7.3: Gets or sets the crate label/name.
+        /// </summary>
+        public string Label
+        {
+            get => string.IsNullOrWhiteSpace(crateLabel) ? "Storage Crate" : crateLabel;
+            set => crateLabel = value ?? "Storage Crate";
+        }
 
         public IReadOnlyDictionary<string, int> Items => _items;
 
         public int SlotsUsed => _items.Count;
         public int TotalCount => _items.Values.Sum();
+
+        /// <summary>
+        /// Milestone 7.3: Calculates current total weight of items.
+        /// </summary>
+        public float CurrentWeight => CalculateWeight();
+
+        /// <summary>
+        /// Milestone 7.3: Returns true if over weight capacity.
+        /// </summary>
+        public bool IsOverWeight => CurrentWeight > MaxWeight;
 
         private void Awake()
         {
@@ -46,9 +86,66 @@ namespace Frontline.Buildables
                 return false;
             if (TotalCount + count > maxTotalCount)
                 return false;
+
+            // Milestone 7.3: Check weight limit.
+            var itemWeight = GetItemWeight(itemId) * count;
+            if (CurrentWeight + itemWeight > MaxWeight)
+                return false;
+
             if (_items.ContainsKey(itemId))
                 return true;
             return SlotsUsed + 1 <= maxSlots;
+        }
+
+        /// <summary>
+        /// Milestone 7.3: Calculate total weight of stored items.
+        /// </summary>
+        private float CalculateWeight()
+        {
+            var total = 0f;
+            foreach (var kv in _items)
+            {
+                if (kv.Value <= 0)
+                    continue;
+                total += GetItemWeight(kv.Key) * kv.Value;
+            }
+            return total;
+        }
+
+        /// <summary>
+        /// Milestone 7.3: Get weight of an item type.
+        /// </summary>
+        public static float GetItemWeight(string itemId)
+        {
+            if (string.IsNullOrWhiteSpace(itemId))
+                return 0f;
+
+            // Resources are lighter per unit.
+            if (itemId.StartsWith("mat_"))
+                return PlayerInventoryService.RESOURCE_WEIGHT;
+
+            // Default weight for tools/other items.
+            return 2f;
+        }
+
+        /// <summary>
+        /// Milestone 7.3: Upgrade the crate's capacity.
+        /// Returns true if upgrade was successful.
+        /// </summary>
+        public bool TryUpgrade()
+        {
+            // Hook for future upgrade cost checking.
+            // For now, just increment the level.
+            _upgradeLevel++;
+            return true;
+        }
+
+        /// <summary>
+        /// Milestone 7.3: Set upgrade level (for save/load).
+        /// </summary>
+        public void SetUpgradeLevelForLoad(int level)
+        {
+            _upgradeLevel = Mathf.Max(0, level);
         }
 
         public bool TryAdd(string itemId, int count)
@@ -115,18 +212,52 @@ namespace Frontline.Buildables
                 return;
             _registered = true;
 
-            // On crate destruction, all contents are destroyed (no world spill).
+            // Milestone 7.3: On crate destruction, drop all contents as loot.
+            DropContentsAsLoot();
+            _items.Clear();
+
+            // Register the crate itself as destroyed.
             if (DestroyedPoolService.Instance != null)
             {
-                foreach (var kv in _items)
-                {
-                    if (string.IsNullOrWhiteSpace(kv.Key) || kv.Value <= 0)
-                        continue;
-                    DestroyedPoolService.Instance.RegisterDestroyed(kv.Key, kv.Value);
-                }
+                DestroyedPoolService.Instance.RegisterDestroyed("build_storage", 1);
             }
+        }
 
-            _items.Clear();
+        /// <summary>
+        /// Milestone 7.3: Drop all contents as loot pickups.
+        /// </summary>
+        private void DropContentsAsLoot()
+        {
+            if (_items.Count == 0)
+                return;
+
+            var basePos = transform.position;
+            var count = 0;
+
+            foreach (var kv in _items)
+            {
+                if (string.IsNullOrWhiteSpace(kv.Key) || kv.Value <= 0)
+                    continue;
+
+                // Spread loot in a circle around the crate position.
+                var angle = count * (360f / Mathf.Max(1, _items.Count)) * Mathf.Deg2Rad;
+                var offset = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * 0.8f;
+                var spawnPos = basePos + offset;
+
+                LootPickup.Spawn(spawnPos, kv.Key, kv.Value);
+                count++;
+            }
+        }
+
+        /// <summary>
+        /// Milestone 7.3: Force-destroy the crate (used by UI button).
+        /// </summary>
+        public void DestroyCrate()
+        {
+            if (_health != null && !_health.IsDead)
+            {
+                _health.Kill();
+            }
         }
     }
 }
