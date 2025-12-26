@@ -19,9 +19,12 @@ namespace Frontline.UI
     /// <summary>
     /// Lightweight live panel to inspect the DestroyedPool and run dev seeding actions.
     /// (IMGUI to avoid any editor-created UI assets.)
+    /// Milestone 7.2: Added Instance singleton and IsVisible property for UI blocking.
     /// </summary>
     public sealed class DestroyedPoolDebugPanel : MonoBehaviour
     {
+        public static DestroyedPoolDebugPanel Instance { get; private set; }
+
         [SerializeField] private bool visible = true;
         [SerializeField] private KeyCode toggleKey = KeyCode.F1;
 
@@ -40,6 +43,21 @@ namespace Frontline.UI
 
         private readonly List<string> _cachedIds = new();
         private float _nextIdRefreshTime;
+
+        /// <summary>
+        /// Milestone 7.2: Whether the debug panel is currently visible.
+        /// </summary>
+        public bool IsVisible => visible;
+
+        private void Awake()
+        {
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            Instance = this;
+        }
 
         private void Update()
         {

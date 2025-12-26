@@ -8,6 +8,7 @@ namespace Frontline.UI
     /// - Esc closes ANY open gameplay modal.
     /// - E toggles (closes) ONLY modals that were opened via interaction (E).
     /// 
+    /// Milestone 7.2: Added centralized IsUIBlockingInput check.
     /// Modals register a close action when opened and clear when closed.
     /// </summary>
     public sealed class UiModalManager : MonoBehaviour
@@ -19,8 +20,60 @@ namespace Frontline.UI
         private bool _currentOpenedByInteract;
         private int _openedFrame = -1;
 
+        // Milestone 7.2: Track if mouse is over IMGUI elements this frame.
+        private bool _mouseOverIMGUI;
+        private Rect _lastIMGUIRect;
+
         public bool HasOpenModal => _currentClose != null;
         public bool CurrentOpenedByInteract => HasOpenModal && _currentOpenedByInteract;
+
+        /// <summary>
+        /// Milestone 7.2: Centralized check for whether UI is blocking world input.
+        /// Use this before processing mouse clicks for world actions (placing, attacking, etc.).
+        /// </summary>
+        public bool IsUIBlockingInput
+        {
+            get
+            {
+                // Any modal is open.
+                if (HasOpenModal)
+                    return true;
+
+                // Build catalog panel open (IMGUI).
+                if (BuildCatalogPanel.Instance != null && BuildCatalogPanel.Instance.IsOpen)
+                    return true;
+
+                // Storage crate panel open.
+                if (StorageCratePanel.Instance != null && StorageCratePanel.Instance.IsOpen)
+                    return true;
+
+                // Truck panel open.
+                if (TransportTruckPanel.Instance != null && TransportTruckPanel.Instance.IsOpen)
+                    return true;
+
+                // Dev panel (F1) - check via DestroyedPoolDebugPanel.
+                if (DestroyedPoolDebugPanel.Instance != null && DestroyedPoolDebugPanel.Instance.IsVisible)
+                    return true;
+
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Milestone 7.2: Registers an IMGUI rect to track for mouse blocking.
+        /// Call this from OnGUI() in panels that need to block world clicks.
+        /// </summary>
+        public void RegisterIMGUIRect(Rect rect)
+        {
+            _lastIMGUIRect = rect;
+            if (rect.Contains(Event.current?.mousePosition ?? Input.mousePosition))
+                _mouseOverIMGUI = true;
+        }
+
+        /// <summary>
+        /// Milestone 7.2: Returns true if mouse is currently over registered IMGUI elements.
+        /// </summary>
+        public bool IsMouseOverIMGUI => _mouseOverIMGUI;
 
         private void Awake()
         {
@@ -36,6 +89,9 @@ namespace Frontline.UI
 
         private void Update()
         {
+            // Milestone 7.2: Reset IMGUI mouse tracking each frame.
+            _mouseOverIMGUI = false;
+
             if (!HasOpenModal)
                 return;
 

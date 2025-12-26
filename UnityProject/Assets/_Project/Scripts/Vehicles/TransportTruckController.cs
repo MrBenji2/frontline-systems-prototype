@@ -67,6 +67,14 @@ namespace Frontline.Vehicles
         [SerializeField] private int maxSlots = 12;
         [SerializeField] private int maxTotalCount = 80;
 
+        [Header("Milestone 7.2: Weight System")]
+        [SerializeField] private float maxCargoWeight = 500f;
+        [SerializeField] private float emptyWeight = 2500f;
+        [Tooltip("Speed reduction per 100 units of cargo weight (0-1).")]
+        [SerializeField] private float weightSpeedPenaltyPer100 = 0.05f;
+        [Tooltip("Acceleration reduction per 100 units of cargo weight (0-1).")]
+        [SerializeField] private float weightAccelPenaltyPer100 = 0.08f;
+
         [Header("Anchors")]
         [SerializeField] private Transform seatAnchor;
         [SerializeField] private Transform exitPoint;
@@ -103,6 +111,26 @@ namespace Frontline.Vehicles
         public IReadOnlyDictionary<string, int> Items => _items;
         public int SlotsUsed => _items.Count;
         public int TotalCount => _items.Values.Sum();
+
+        /// <summary>
+        /// Milestone 7.2: Maximum cargo weight capacity.
+        /// </summary>
+        public float MaxCargoWeight => maxCargoWeight;
+
+        /// <summary>
+        /// Milestone 7.2: Current cargo weight.
+        /// </summary>
+        public float CurrentCargoWeight => CalculateCargoWeight();
+
+        /// <summary>
+        /// Milestone 7.2: Total truck weight (empty + cargo).
+        /// </summary>
+        public float TotalWeight => emptyWeight + CurrentCargoWeight;
+
+        /// <summary>
+        /// Milestone 7.2: Whether the truck is over its cargo weight limit.
+        /// </summary>
+        public bool IsOverloaded => CurrentCargoWeight > maxCargoWeight;
 
         private void Awake()
         {
@@ -262,14 +290,22 @@ namespace Frontline.Vehicles
             _currentGrip = Mathf.MoveTowards(_currentGrip, _targetGrip, Mathf.Max(0.01f, gripReturnSpeed) * dt);
 
             // Part A: acceleration curve (punchy low speed, taper high speed).
-            var maxThisDir = _throttleInput >= 0f ? Mathf.Max(0.1f, maxSpeed) : Mathf.Max(0.1f, maxReverseSpeed);
+            // Milestone 7.2: Apply weight-based speed/accel penalties.
+            var weightSpeedMul = GetWeightSpeedMultiplier();
+            var weightAccelMul = GetWeightAccelMultiplier();
+
+            var effectiveMaxSpeed = maxSpeed * weightSpeedMul;
+            var effectiveMaxReverse = maxReverseSpeed * weightSpeedMul;
+            var effectiveAccel = accel * weightAccelMul;
+
+            var maxThisDir = _throttleInput >= 0f ? Mathf.Max(0.1f, effectiveMaxSpeed) : Mathf.Max(0.1f, effectiveMaxReverse);
             var speedFactor = Mathf.Clamp01(speed / maxThisDir);
             var accelMul = Mathf.Lerp(Mathf.Max(0.5f, lowSpeedAccelMultiplier), 1.0f, speedFactor * speedFactor);
 
             // Apply engine acceleration along facing direction.
             if (Mathf.Abs(_throttleInput) > 0.001f && !_handbrake)
             {
-                var engineForce = forward * (_throttleInput * accel * accelMul);
+                var engineForce = forward * (_throttleInput * effectiveAccel * accelMul);
                 _rb.AddForce(engineForce, ForceMode.Acceleration);
             }
 
@@ -327,10 +363,11 @@ namespace Frontline.Vehicles
             _rb.AddTorque(-av * Mathf.Max(0f, angularDamping), ForceMode.Acceleration);
 
             // Part E: speed caps (separate forward/reverse).
+            // Milestone 7.2: Use weight-adjusted speed caps.
             v = _rb.velocity;
             planar = new Vector3(v.x, 0f, v.z);
             forwardSpeed = Vector3.Dot(planar, forward);
-            var cap = forwardSpeed >= 0f ? Mathf.Max(0.1f, maxSpeed) : Mathf.Max(0.1f, maxReverseSpeed);
+            var cap = forwardSpeed >= 0f ? Mathf.Max(0.1f, effectiveMaxSpeed) : Mathf.Max(0.1f, effectiveMaxReverse);
             if (planar.magnitude > cap)
             {
                 planar = planar.normalized * cap;
@@ -356,15 +393,20 @@ namespace Frontline.Vehicles
                 return;
 
             // Part G: debug tuning readout while driving.
+            // Milestone 7.2: Added weight info.
             var v = _rb.velocity;
             var speed = new Vector3(v.x, 0f, v.z).magnitude;
-            var rect = new Rect(10, 10, 320, 68);
+            var cargo = CurrentCargoWeight;
+            var speedMul = GetWeightSpeedMultiplier();
+
+            var rect = new Rect(10, 10, 360, 86);
             GUI.Box(rect, "");
             GUI.Label(
                 new Rect(rect.x + 8, rect.y + 6, rect.width - 16, rect.height - 12),
                 $"Truck Debug\n" +
-                $"Speed: {speed:0.00} m/s\n" +
-                $"Throttle: {_throttleInput:0.00} | Steer: {_steerInput:0.00} | Handbrake: {(_handbrake ? "ON" : "off")}");
+                $"Speed: {speed:0.00} m/s | Max: {maxSpeed * speedMul:0.0} m/s\n" +
+                $"Throttle: {_throttleInput:0.00} | Steer: {_steerInput:0.00} | Handbrake: {(_handbrake ? "ON" : "off")}\n" +
+                $"Cargo: {cargo:0.0}/{maxCargoWeight:0.0} kg | SpeedMul: {speedMul:0.00}");
         }
 
         public bool CanAdd(string itemId, int count)
@@ -375,9 +417,71 @@ namespace Frontline.Vehicles
                 return false;
             if (TotalCount + count > maxTotalCount)
                 return false;
+
+            // Milestone 7.2: Check weight limit.
+            var itemWeight = GetItemWeight(itemId) * count;
+            if (CurrentCargoWeight + itemWeight > maxCargoWeight)
+                return false;
+
             if (_items.ContainsKey(itemId))
                 return true;
             return SlotsUsed + 1 <= maxSlots;
+        }
+
+        /// <summary>
+        /// Milestone 7.2: Calculates total cargo weight.
+        /// </summary>
+        private float CalculateCargoWeight()
+        {
+            var total = 0f;
+            foreach (var kv in _items)
+            {
+                if (kv.Value <= 0)
+                    continue;
+                total += GetItemWeight(kv.Key) * kv.Value;
+            }
+            return total;
+        }
+
+        /// <summary>
+        /// Milestone 7.2: Gets the weight of an item type.
+        /// </summary>
+        public static float GetItemWeight(string itemId)
+        {
+            if (string.IsNullOrWhiteSpace(itemId))
+                return 0f;
+
+            // Resources are lighter per unit.
+            if (itemId.StartsWith("mat_"))
+                return PlayerInventoryService.RESOURCE_WEIGHT;
+
+            // Tools/weapons are heavier.
+            var recipe = ToolRecipes.Get(itemId);
+            if (recipe != null)
+                return PlayerInventoryService.GetToolWeight(recipe.toolType);
+
+            // Default weight.
+            return 2f;
+        }
+
+        /// <summary>
+        /// Milestone 7.2: Gets the speed multiplier based on cargo weight.
+        /// </summary>
+        public float GetWeightSpeedMultiplier()
+        {
+            var weight = CurrentCargoWeight;
+            var penalty = (weight / 100f) * weightSpeedPenaltyPer100;
+            return Mathf.Clamp(1f - penalty, 0.3f, 1f);
+        }
+
+        /// <summary>
+        /// Milestone 7.2: Gets the acceleration multiplier based on cargo weight.
+        /// </summary>
+        public float GetWeightAccelMultiplier()
+        {
+            var weight = CurrentCargoWeight;
+            var penalty = (weight / 100f) * weightAccelPenaltyPer100;
+            return Mathf.Clamp(1f - penalty, 0.2f, 1f);
         }
 
         public bool TryAdd(string itemId, int count)
@@ -591,10 +695,23 @@ namespace Frontline.Vehicles
             if (IsOccupied)
                 return;
 
+            // Milestone 7.2: Freeze truck physics during entry to prevent push.
+            // The player's CharacterController can push the rigidbody otherwise.
+            if (_rb != null)
+            {
+                _rb.velocity = Vector3.zero;
+                _rb.angularVelocity = Vector3.zero;
+            }
+
             _driver = player;
             _driverCc = player.GetComponent<CharacterController>();
             _driverVitals = player.GetComponent<PlayerCombatVitals>();
             _driverRenderers = player.GetComponentsInChildren<Renderer>(true);
+
+            // Milestone 7.2: Disable CharacterController BEFORE moving player.
+            // This prevents physics interaction during teleport.
+            if (_driverCc != null)
+                _driverCc.enabled = false;
 
             _disabledWhileDriving.Clear();
             foreach (var b in player.GetComponents<Behaviour>())
@@ -619,9 +736,6 @@ namespace Frontline.Vehicles
                 }
             }
 
-            if (_driverCc != null)
-                _driverCc.enabled = false;
-
             if (_driverRenderers != null)
             {
                 foreach (var r in _driverRenderers)
@@ -629,6 +743,7 @@ namespace Frontline.Vehicles
             }
 
             // Parent to seat so camera (tracking player) follows truck.
+            // Player is now disabled, so this won't cause physics push.
             if (seatAnchor != null)
             {
                 player.transform.SetParent(seatAnchor, worldPositionStays: true);

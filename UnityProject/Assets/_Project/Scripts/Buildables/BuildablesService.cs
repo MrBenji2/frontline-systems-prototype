@@ -110,22 +110,10 @@ namespace Frontline.Buildables
                 _nextAutosaveTime = Time.unscaledTime + 0.25f;
             }
 
-            // If any gameplay modal is open, don't process build/crate/repair inputs.
-            // (This allows Esc to close the modal without exiting Construction Mode.)
-            if (UiModalManager.Instance != null && UiModalManager.Instance.HasOpenModal)
+            // Milestone 7.2: Use centralized UI blocking check.
+            // This covers all modals, IMGUI panels (build catalog, dev panel), and truck/crate UIs.
+            if (UiModalManager.Instance != null && UiModalManager.Instance.IsUIBlockingInput)
                 return;
-
-            // If crate UI is open, don't process build mode/repair inputs.
-            if (StorageCratePanel.Instance != null && StorageCratePanel.Instance.IsOpen)
-                return;
-
-            // Patch 7.1C: If BuildCatalogPanel is open, don't process placement clicks.
-            // The panel uses IMGUI which doesn't block Input.GetMouseButton, so we check explicitly.
-            if (BuildCatalogPanel.Instance != null && BuildCatalogPanel.Instance.IsOpen)
-            {
-                // Still allow V key to toggle the panel closed, but block all other inputs.
-                return;
-            }
 
             if (!_buildMode)
             {
@@ -649,7 +637,7 @@ namespace Frontline.Buildables
             root.layer = 0;
             root.transform.SetPositionAndRotation(pos, rot);
 
-            // Patch 7.1B: Improved ramp placement to prevent floating.
+            // Milestone 7.2: Improved ramp for walkability.
             // Create a wedge-shaped ramp that sits flush on the support surface.
             // Rise = WORLD_LEVEL_HEIGHT, run = 2.0m to match foundation footprint.
             const float width = 2.0f;
@@ -666,33 +654,35 @@ namespace Frontline.Buildables
             body.transform.localScale = new Vector3(width, thickness, slopeLen);
             body.transform.localRotation = Quaternion.Euler(-angleDeg, 0f, 0f);
 
-            // Patch 7.1B: Position the ramp so its lowest edge is at Y=0 (local space).
-            // The ramp body is rotated around its center, so we need to offset it properly.
+            // Position the ramp so its lowest edge is at Y=0 (local space).
             var a = angleDeg * Mathf.Deg2Rad;
             var halfThickness = thickness * 0.5f;
             var halfLength = slopeLen * 0.5f;
 
             // The lowest point of the rotated cube is at the bottom-back corner.
-            // Offset Y so that point sits at Y=0.
-            // Offset Z so the ramp extends forward from the placement point.
             var yOffset = halfThickness * Mathf.Cos(a) + halfLength * Mathf.Sin(a);
             var zOffset = halfLength * Mathf.Cos(a) - halfThickness * Mathf.Sin(a) - run * 0.5f;
 
             body.transform.localPosition = new Vector3(0f, yOffset, zOffset);
 
-            // Add a box collider on the root for reliable collision/physics settling.
-            var rootCol = root.AddComponent<BoxCollider>();
-            rootCol.center = new Vector3(0f, rise * 0.5f, 0f);
-            rootCol.size = new Vector3(width, rise, run);
+            // Milestone 7.2: Keep the body's BoxCollider enabled for proper slope walking.
+            // The rotated BoxCollider follows the slope geometry, allowing CharacterController to walk on it.
+            var bodyCol = body.GetComponent<Collider>();
+            if (bodyCol != null)
+            {
+                bodyCol.enabled = true;
+                bodyCol.isTrigger = false;
+            }
+
+            // Add a small trigger collider on root for raycasting/placement detection.
+            var rootTrigger = root.AddComponent<BoxCollider>();
+            rootTrigger.isTrigger = true;
+            rootTrigger.center = new Vector3(0f, rise * 0.5f, 0f);
+            rootTrigger.size = new Vector3(width * 0.9f, rise * 0.9f, run * 0.9f);
 
             var r = body.GetComponent<Renderer>();
             if (r != null)
                 r.material = GetPlaceholderMaterialForBuildable("build_ramp", new Color(0.55f, 0.40f, 0.20f));
-
-            // Disable the body's collider since we're using the root collider for physics.
-            var bodyCol = body.GetComponent<Collider>();
-            if (bodyCol != null)
-                bodyCol.enabled = false;
 
             return root;
         }

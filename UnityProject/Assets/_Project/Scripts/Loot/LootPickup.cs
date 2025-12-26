@@ -7,6 +7,11 @@ namespace Frontline.Loot
         [SerializeField] private string itemId = "";
         [SerializeField] private int quantity = 1;
 
+        /// <summary>
+        /// Milestone 7.2: Default lifetime for ground loot (in seconds).
+        /// </summary>
+        public const float DEFAULT_LIFETIME_SECONDS = 120f;
+
         public string ItemId => itemId;
         public int Quantity => Mathf.Max(1, quantity);
 
@@ -16,6 +21,14 @@ namespace Frontline.Loot
         }
 
         public static LootPickup Spawn(Vector3 position, string itemId, int quantity)
+        {
+            return Spawn(position, itemId, quantity, DEFAULT_LIFETIME_SECONDS);
+        }
+
+        /// <summary>
+        /// Milestone 7.2: Spawn with configurable lifetime.
+        /// </summary>
+        public static LootPickup Spawn(Vector3 position, string itemId, int quantity, float lifetimeSeconds)
         {
             var q = Mathf.Max(1, quantity);
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -50,6 +63,14 @@ namespace Frontline.Loot
             var p = go.AddComponent<LootPickup>();
             p.itemId = itemId ?? "";
             p.quantity = q;
+
+            // Milestone 7.2: Add lifetime component for salvage conversion.
+            if (lifetimeSeconds > 0f)
+            {
+                var lifetime = go.AddComponent<GroundLootLifetime>();
+                lifetime.Configure(lifetimeSeconds, convertToSalvage: true, salvageAmt: 1);
+            }
+
             return p;
         }
     }

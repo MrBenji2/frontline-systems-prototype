@@ -30,6 +30,11 @@ namespace Frontline.Gameplay
         // Patch 7.1D: Number of equipment slots (1-5).
         public const int SLOT_COUNT = 5;
 
+        // Milestone 7.2: Weight system constants.
+        public const float DEFAULT_MAX_CARRY_WEIGHT = 100f;
+        public const float RESOURCE_WEIGHT = 0.5f; // Weight per unit of resource
+        public const float PACKAGED_ITEM_WEIGHT_MULTIPLIER = 1.5f; // Extra weight for unslotted tools
+
         [Serializable]
         public sealed class ToolInstance
         {
@@ -51,6 +56,9 @@ namespace Frontline.Gameplay
         [Header("Starter (to avoid tool/resource deadlock)")]
         [SerializeField] private bool grantStarterWood = true;
         [SerializeField] private int starterWoodAmount = 10;
+
+        [Header("Milestone 7.2: Weight System")]
+        [SerializeField] private float maxCarryWeight = DEFAULT_MAX_CARRY_WEIGHT;
 
         private readonly Dictionary<string, int> _resources = new(StringComparer.Ordinal);
         private readonly List<ToolInstance> _tools = new();
@@ -589,6 +597,153 @@ namespace Frontline.Gameplay
         {
             return _tools.Where(t => t != null && !string.IsNullOrWhiteSpace(t.itemId)).Select(t => t.itemId);
         }
+
+        #region Milestone 7.2: Weight System
+
+        /// <summary>
+        /// Gets the maximum carry weight for the player.
+        /// </summary>
+        public float MaxCarryWeight => maxCarryWeight;
+
+        /// <summary>
+        /// Calculates the total weight of all carried items (resources + tools).
+        /// </summary>
+        public float GetTotalWeight()
+        {
+            var totalWeight = 0f;
+
+            // Calculate resource weight.
+            foreach (var kv in _resources)
+            {
+                if (kv.Value <= 0)
+                    continue;
+                totalWeight += kv.Value * GetResourceWeight(kv.Key);
+            }
+
+            // Calculate tool/weapon weight.
+            foreach (var tool in _tools)
+            {
+                if (tool == null)
+                    continue;
+                var baseWeight = GetToolWeight(tool.toolType);
+
+                // Unslotted (packaged) items are heavier.
+                if (tool.slotNumber == 0)
+                    baseWeight *= PACKAGED_ITEM_WEIGHT_MULTIPLIER;
+
+                totalWeight += baseWeight;
+            }
+
+            return totalWeight;
+        }
+
+        /// <summary>
+        /// Gets the weight ratio (0.0 to 1.0+).
+        /// </summary>
+        public float GetWeightRatio()
+        {
+            if (maxCarryWeight <= 0f)
+                return 1f;
+            return GetTotalWeight() / maxCarryWeight;
+        }
+
+        /// <summary>
+        /// Returns true if the player is carrying more than max capacity.
+        /// </summary>
+        public bool IsOverEncumbered()
+        {
+            return GetTotalWeight() > maxCarryWeight;
+        }
+
+        /// <summary>
+        /// Gets the movement speed multiplier based on carried weight.
+        /// 0-30% = 1.0 (no penalty)
+        /// 30-60% = slight slowdown (0.85)
+        /// 60-90% = heavy slowdown (0.65)
+        /// >90% = extreme slowdown (0.4)
+        /// </summary>
+        public float GetWeightSpeedMultiplier()
+        {
+            var ratio = GetWeightRatio();
+            if (ratio <= 0.3f) return 1.0f;
+            if (ratio <= 0.6f) return 0.85f;
+            if (ratio <= 0.9f) return 0.65f;
+            return 0.4f;
+        }
+
+        /// <summary>
+        /// Gets the maximum step height based on carried weight.
+        /// Lighter = can climb higher. Heavier = reduced climb ability.
+        /// </summary>
+        public float GetWeightMaxStepHeight(float baseStepHeight)
+        {
+            var ratio = GetWeightRatio();
+            if (ratio <= 0.3f) return baseStepHeight;
+            if (ratio <= 0.6f) return baseStepHeight * 0.8f;
+            if (ratio <= 0.9f) return baseStepHeight * 0.5f;
+            return baseStepHeight * 0.25f;
+        }
+
+        /// <summary>
+        /// Gets the stamina drain multiplier based on carried weight (hook for future stamina system).
+        /// </summary>
+        public float GetWeightStaminaDrainMultiplier()
+        {
+            var ratio = GetWeightRatio();
+            if (ratio <= 0.3f) return 1.0f;
+            if (ratio <= 0.6f) return 1.5f;
+            if (ratio <= 0.9f) return 2.5f;
+            return 4.0f;
+        }
+
+        /// <summary>
+        /// Gets the weight of a resource type.
+        /// </summary>
+        public static float GetResourceWeight(string resourceId)
+        {
+            // All resources have the same weight for now.
+            // Can be expanded with a lookup table if needed.
+            return RESOURCE_WEIGHT;
+        }
+
+        /// <summary>
+        /// Gets the base weight of a tool type.
+        /// Large weapons are heavier.
+        /// </summary>
+        public static float GetToolWeight(ToolType toolType)
+        {
+            return toolType switch
+            {
+                ToolType.None => 0f,
+                // Large weapons (rifles, melee weapons): heavier
+                ToolType.MeleeWeapon => 5f,
+                ToolType.Axe => 4f,
+                ToolType.Shovel => 3f,
+                ToolType.Pickaxe => 4f,
+                ToolType.Hammer => 3f,
+                ToolType.Wrench => 2f,
+                // Small items: lighter
+                ToolType.Knife => 1f,
+                ToolType.Throwable => 0.5f,
+                ToolType.GasCan => 8f,  // Heavy when full
+                ToolType.Deployable => 10f, // Portable structures are heavy
+                ToolType.Medical => 1f,
+                _ => 2f
+            };
+        }
+
+        /// <summary>
+        /// Debug: logs current weight status.
+        /// </summary>
+        public void DebugLogWeightStatus()
+        {
+            var total = GetTotalWeight();
+            var ratio = GetWeightRatio();
+            var speedMult = GetWeightSpeedMultiplier();
+            Debug.Log($"[Weight] Total: {total:F1}/{maxCarryWeight:F1} ({ratio * 100:F0}%) | Speed: {speedMult:F2}x | Encumbered: {IsOverEncumbered()}");
+        }
+
+        #endregion
     }
 }
 
