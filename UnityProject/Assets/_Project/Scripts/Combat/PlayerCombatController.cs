@@ -199,7 +199,34 @@ namespace Frontline.Combat
             var origin = transform.position;
             origin.y = 0f;
 
+            // Milestone 7.4: Use cone-filtered melee like weapon melee.
+            // Determine facing direction from player forward or mouse aim.
+            var dir = transform.forward;
+            dir.y = 0f;
+            if (dir.sqrMagnitude > 0.001f)
+                dir.Normalize();
+            else
+                dir = Vector3.forward;
+
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                var ray = cam.ScreenPointToRay(Input.mousePosition);
+                if (Physics.Raycast(ray, out var aimHit, 200f, ~0, QueryTriggerInteraction.Collide))
+                {
+                    var to = aimHit.point - transform.position;
+                    to.y = 0f;
+                    if (to.sqrMagnitude > 0.001f)
+                        dir = to.normalized;
+                }
+            }
+
             var hits = Physics.OverlapSphere(origin, meleeRange, ~0, QueryTriggerInteraction.Ignore);
+
+            // Cone filter: 120 degree arc in front of player.
+            const float coneAngleDegrees = 120f;
+            var coneAngleCos = Mathf.Cos(coneAngleDegrees * 0.5f * Mathf.Deg2Rad);
+
             Health best = null;
             var bestDist = float.MaxValue;
             foreach (var c in hits)
@@ -212,9 +239,19 @@ namespace Frontline.Combat
                 if (h.GetComponent<TacticalPlayerController>() != null)
                     continue;
 
-                var p = h.transform.position;
-                p.y = 0f;
-                var d = Vector3.Distance(origin, p);
+                var targetPos = h.transform.position;
+                targetPos.y = 0f;
+                var toTarget = targetPos - origin;
+                var d = toTarget.magnitude;
+
+                if (d > meleeRange || d < 0.01f)
+                    continue;
+
+                // Milestone 7.4: Check if target is within the attack cone.
+                var dot = Vector3.Dot(dir, toTarget.normalized);
+                if (dot < coneAngleCos)
+                    continue; // Outside the attack arc
+
                 if (d < bestDist)
                 {
                     bestDist = d;
