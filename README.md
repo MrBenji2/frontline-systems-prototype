@@ -148,3 +148,57 @@ Logging:
    - Place multiple buildables, press **F1** → **Save World**
    - Stop Play, press Play again, then **F1** → **Load World**
    - Verify buildables reappear at correct positions/rotations with correct HP (and crate contents if used)
+
+## Milestone 7.1: Bug Fixes and Improvements
+
+### Bug Fixes
+
+1. **Floor/ceiling placement beside walls**:
+   - Fixed overlap detection for thin buildables (walls, floors).
+   - Improved skin calculation allows flush adjacency between different buildable shapes.
+   - Added `IsTrulyOverlapping()` check with tolerance for touching faces.
+
+2. **Ramps floating**:
+   - Improved ramp placement geometry so lowest edge sits flush on the support surface.
+   - Added root BoxCollider for reliable physics settling.
+
+3. **Build menu click-through**:
+   - Fixed issue where clicking buttons in Build Catalog panel (V) would also trigger placement.
+   - Added explicit check for `BuildCatalogPanel.IsOpen` in `BuildablesService.Update()`.
+
+4. **Weapon slot system (1-5)**:
+   - Implemented proper 5-slot equipment system with categories:
+     - **Slot 1 (Primary)**: Main weapons and tools (axes, hammers, melee weapons)
+     - **Slot 2 (Secondary)**: Sidearms and small weapons (knives)
+     - **Slot 3 (Throwable)**: Grenades, throwing weapons
+     - **Slot 4 (Deployable)**: Portable shield, camp/tent, workbench, gas cans
+     - **Slot 5 (Medical)**: Medkits, bandages
+   - Added `EquipmentSlot` enum for slot categories.
+   - Tools auto-equip to appropriate slot when added.
+   - Number keys 1-5 switch between slots (only when not in build mode).
+
+5. **Truck entry**:
+   - Fixed E key interaction detection for entering transport trucks.
+   - Added cursor raycast check (`IsPlayerLookingAtTruck()`) for more reliable entry.
+   - Increased interaction range slightly for better UX.
+   - Blocked truck inputs while in build mode.
+
+6. **Melee attacks doing ranged damage**:
+   - Changed melee weapon attacks from SphereCast (ranged-style) to OverlapSphere (true melee).
+   - Added 120° cone/arc filter so attacks only hit targets in front of player.
+   - Rebalanced melee weapon stats:
+     - **Knife**: 1.2m range, 12 damage, 3 attacks/sec
+     - **Sword**: 1.8m range, 18 damage, 2 attacks/sec
+     - **Pole**: 2.5m range, 25 damage, 1.2 attacks/sec
+
+### New Features
+
+- **EquipmentSlot enum**: Defines slot categories (Primary, Secondary, Throwable, Deployable, Medical).
+- **Extended ToolType enum**: Added Pickaxe, Knife, Throwable, Deployable, Medical types.
+- **Slot-based equipping**: `AddToolToSlot()`, `EquipToolToSlot()`, `GetToolInSlot()`, `SetActiveSlot()` methods.
+
+### Controls Update
+
+- **1-5**: Switch equipment slots (when not in build mode)
+- **E**: Enter/exit truck (when looking at truck or nearby)
+- **F**: Open truck storage (when near truck or inside)

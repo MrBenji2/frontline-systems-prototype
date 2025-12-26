@@ -119,6 +119,14 @@ namespace Frontline.Buildables
             if (StorageCratePanel.Instance != null && StorageCratePanel.Instance.IsOpen)
                 return;
 
+            // Patch 7.1C: If BuildCatalogPanel is open, don't process placement clicks.
+            // The panel uses IMGUI which doesn't block Input.GetMouseButton, so we check explicitly.
+            if (BuildCatalogPanel.Instance != null && BuildCatalogPanel.Instance.IsOpen)
+            {
+                // Still allow V key to toggle the panel closed, but block all other inputs.
+                return;
+            }
+
             if (!_buildMode)
             {
                 if (Input.GetKeyDown(toggleBuildModeKey))
@@ -641,7 +649,8 @@ namespace Frontline.Buildables
             root.layer = 0;
             root.transform.SetPositionAndRotation(pos, rot);
 
-            // Approximate a wedge with a sloped top (walkable).
+            // Patch 7.1B: Improved ramp placement to prevent floating.
+            // Create a wedge-shaped ramp that sits flush on the support surface.
             // Rise = WORLD_LEVEL_HEIGHT, run = 2.0m to match foundation footprint.
             const float width = 2.0f;
             const float run = 2.0f;
@@ -657,16 +666,33 @@ namespace Frontline.Buildables
             body.transform.localScale = new Vector3(width, thickness, slopeLen);
             body.transform.localRotation = Quaternion.Euler(-angleDeg, 0f, 0f);
 
-            // Center height so the lowest point sits on the support surface.
+            // Patch 7.1B: Position the ramp so its lowest edge is at Y=0 (local space).
+            // The ramp body is rotated around its center, so we need to offset it properly.
             var a = angleDeg * Mathf.Deg2Rad;
-            var t = thickness * 0.5f;
-            var l = slopeLen * 0.5f;
-            var centerY = t * Mathf.Cos(a) + l * Mathf.Sin(a);
-            body.transform.localPosition = new Vector3(0f, centerY, 0f);
+            var halfThickness = thickness * 0.5f;
+            var halfLength = slopeLen * 0.5f;
+
+            // The lowest point of the rotated cube is at the bottom-back corner.
+            // Offset Y so that point sits at Y=0.
+            // Offset Z so the ramp extends forward from the placement point.
+            var yOffset = halfThickness * Mathf.Cos(a) + halfLength * Mathf.Sin(a);
+            var zOffset = halfLength * Mathf.Cos(a) - halfThickness * Mathf.Sin(a) - run * 0.5f;
+
+            body.transform.localPosition = new Vector3(0f, yOffset, zOffset);
+
+            // Add a box collider on the root for reliable collision/physics settling.
+            var rootCol = root.AddComponent<BoxCollider>();
+            rootCol.center = new Vector3(0f, rise * 0.5f, 0f);
+            rootCol.size = new Vector3(width, rise, run);
 
             var r = body.GetComponent<Renderer>();
             if (r != null)
                 r.material = GetPlaceholderMaterialForBuildable("build_ramp", new Color(0.55f, 0.40f, 0.20f));
+
+            // Disable the body's collider since we're using the root collider for physics.
+            var bodyCol = body.GetComponent<Collider>();
+            if (bodyCol != null)
+                bodyCol.enabled = false;
 
             return root;
         }
@@ -922,13 +948,18 @@ namespace Frontline.Buildables
             var half = scale * 0.5f;
             half.y = Mathf.Max(0.1f, half.y);
 
-            // Patch 5.3A: placement validity must work when rotated and allow flush adjacency.
-            // Use an oriented box (OverlapBox with rotation) and a small "skin" so touching faces aren't treated as overlap.
-            var skin = Mathf.Max(0.005f, gridSizeMeters * 0.02f);
+            // Patch 7.1A: improved placement validity for thin buildables (walls, floors).
+            // Use a larger skin value to allow flush adjacency between different buildable shapes.
+            // Thin dimensions (< 0.5m) get a proportionally larger skin to prevent false overlaps.
+            var baseSkin = Mathf.Max(0.02f, gridSizeMeters * 0.05f);
+            var skinX = half.x < 0.25f ? Mathf.Max(baseSkin, half.x * 0.5f) : baseSkin;
+            var skinY = half.y < 0.25f ? Mathf.Max(baseSkin, half.y * 0.5f) : baseSkin;
+            var skinZ = half.z < 0.25f ? Mathf.Max(baseSkin, half.z * 0.5f) : baseSkin;
+
             var ext = new Vector3(
-                Mathf.Max(0.05f, half.x - skin),
-                Mathf.Max(0.05f, half.y - skin),
-                Mathf.Max(0.05f, half.z - skin));
+                Mathf.Max(0.02f, half.x - skinX),
+                Mathf.Max(0.02f, half.y - skinY),
+                Mathf.Max(0.02f, half.z - skinZ));
 
             // Check for blocking colliders (ignore triggers and non-gameplay colliders).
             var hits = Physics.OverlapBox(pos, ext, rot, ~0, QueryTriggerInteraction.Ignore);
@@ -941,8 +972,16 @@ namespace Frontline.Buildables
                 if (_preview != null && c.transform.IsChildOf(_preview.transform))
                     continue;
 
-                if (c.GetComponentInParent<Buildable>() != null)
-                    return false;
+                // Patch 7.1A: allow placement adjacent to buildables if they don't truly overlap.
+                // Use bounds intersection check with tolerance for flush adjacency.
+                var otherBuildable = c.GetComponentInParent<Buildable>();
+                if (otherBuildable != null)
+                {
+                    if (IsTrulyOverlapping(pos, ext, rot, c.bounds))
+                        return false;
+                    continue;
+                }
+
                 if (c.GetComponentInParent<Harvesting.HarvestNode>() != null)
                     return false;
                 if (c.GetComponentInParent<TacticalPlayerController>() != null)
@@ -952,6 +991,26 @@ namespace Frontline.Buildables
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Patch 7.1A: Checks if two volumes truly overlap (not just touching edges).
+        /// Returns false for flush adjacency (edges/faces touching but not penetrating).
+        /// </summary>
+        private static bool IsTrulyOverlapping(Vector3 boxCenter, Vector3 boxExtents, Quaternion boxRot, Bounds otherBounds)
+        {
+            // Transform the other bounds center into box-local space.
+            var invRot = Quaternion.Inverse(boxRot);
+            var localCenter = invRot * (otherBounds.center - boxCenter);
+            var localExtents = otherBounds.extents; // Approximate (axis-aligned in world)
+
+            // Check overlap on each axis with a small tolerance for touching faces.
+            const float touchTolerance = 0.03f;
+            var overlapX = Mathf.Abs(localCenter.x) < (boxExtents.x + localExtents.x - touchTolerance);
+            var overlapY = Mathf.Abs(localCenter.y) < (boxExtents.y + localExtents.y - touchTolerance);
+            var overlapZ = Mathf.Abs(localCenter.z) < (boxExtents.z + localExtents.z - touchTolerance);
+
+            return overlapX && overlapY && overlapZ;
         }
 
         private bool CanPlaceBySkill(string itemId, out string reason)
