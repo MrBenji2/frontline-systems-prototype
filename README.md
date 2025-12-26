@@ -202,3 +202,100 @@ Logging:
 - **1-5**: Switch equipment slots (when not in build mode)
 - **E**: Enter/exit truck (when looking at truck or nearby)
 - **F**: Open truck storage (when near truck or inside)
+
+## Milestone 7.2: Inventory Weight, Movement, Ramps, UI Input, Truck Inventory
+
+### Weight System (Foxhole-style)
+
+Player inventory now has a weight-based carry system:
+- **Max carry capacity**: 100 units (configurable)
+- **Weight affects**:
+  - Movement speed (0-30% = no penalty, 30-60% = slight, 60-90% = heavy, >90% = extreme)
+  - Step/climb height (heavier = reduced climb ability)
+  - Stamina drain (hook for future stamina system)
+
+Weight values:
+- Resources: 0.5 units each
+- Tools: 2-10 units depending on type (melee weapons = 5, deployables = 10)
+- Unslotted (packaged) items: 1.5x weight multiplier
+
+### Weight-Aware Movement
+
+- Player step height dynamically adjusts based on carried weight
+- Lighter players can climb/step higher
+- CharacterController slope limit set to 45° for ramp walking
+- Hooks added for future AI pathfinding (`CanStepUp()`, `GetEffectiveMoveSpeed()`)
+
+### Ramp Improvements
+
+- Ramps now use proper rotated BoxCollider for slope walking
+- CharacterController can walk up ramps reliably
+- Ramps can be placed beside walls (improved adjacency detection)
+- No floating or invisible step gaps
+
+### UI Input Blocking (Global Fix)
+
+- Added centralized `IsUIBlockingInput` check in `UiModalManager`
+- When ANY UI panel is open:
+  - Mouse clicks do NOT place buildables
+  - Mouse clicks do NOT trigger world actions
+- Covers: modals, Build Catalog (V), Dev Panel (F1), Truck Storage (F), Storage Crate (E)
+
+### Openables E Key Toggle
+
+- All openable interfaces now properly toggle with E:
+  - Workbench: E opens, E closes
+  - Foundry: E opens, E closes
+  - Storage Crate: E opens, E closes
+- ESC still closes all modals
+
+### Ground Loot Salvage System
+
+- Dropped items on ground have a lifetime (default: 120 seconds)
+- After timeout:
+  - Original item is destroyed (registered in DestroyedPool)
+  - Salvage pickup spawns at same location
+- Salvage is a generic resource (`mat_salvage`)
+- Future: Scrap Yard for chance-based reprocessing
+
+### Truck Entry Fix
+
+- Fixed bug where entering truck would push it backward
+- CharacterController is now disabled BEFORE moving player to seat
+- Truck physics frozen during entry transition
+
+### Truck Inventory Weight
+
+- Truck inventory now uses same weight system as player
+- Max cargo weight: 500 units (configurable)
+- Weight affects:
+  - Acceleration (8% reduction per 100 units)
+  - Max speed (5% reduction per 100 units)
+- Weight check prevents exceeding capacity
+- Debug HUD shows cargo weight and speed multiplier
+
+### Files Changed
+
+1. `PlayerInventoryService.cs` - Weight system, constants, calculation methods
+2. `TacticalPlayerController.cs` - Weight-aware movement and step height
+3. `BuildablesService.cs` - Centralized UI blocking, improved ramp spawning
+4. `UiModalManager.cs` - `IsUIBlockingInput` check, IMGUI rect tracking
+5. `DestroyedPoolDebugPanel.cs` - Added Instance singleton, IsVisible property
+6. `TransportTruckController.cs` - Weight system, entry fix, weight-affected physics
+7. `LootPickup.cs` - Lifetime parameter, auto-add GroundLootLifetime
+8. `GroundLootLifetime.cs` (NEW) - Lifetime tracking, salvage conversion
+9. `SalvagePickup.cs` (NEW) - Salvage pickup for expired loot
+
+### Acceptance Tests
+
+| Test | Description | Status |
+|------|-------------|--------|
+| A | Player carrying 1 weapon moves faster than player carrying 3+ | PASS |
+| B | Over-encumbered player has reduced step/climb ability | PASS |
+| C | Ramps can be placed beside walls | PASS |
+| D | Player can walk up ramps reliably | PASS |
+| E | Clicking UI never places buildables | PASS |
+| F | "E" toggles all openable panels open/closed | PASS |
+| G | Ground loot converts to Salvage after timeout | PASS |
+| H | Entering truck no longer pushes it | PASS |
+| I | Truck inventory respects weight limits | PASS |
