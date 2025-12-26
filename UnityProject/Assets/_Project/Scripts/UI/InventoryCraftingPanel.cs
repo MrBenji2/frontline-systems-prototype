@@ -110,16 +110,56 @@ namespace Frontline.UI
         private void DrawEquipped()
         {
             var inv = PlayerInventoryService.Instance;
-            var eq = inv.EquippedTool;
-            if (eq == null)
+
+            // Patch 7.1D: Display 5-slot equipment system.
+            GUILayout.Label($"Active Slot: {inv.ActiveSlot} ({GetSlotName(inv.ActiveSlot)})");
+            GUILayout.Label("Slots: 1=Primary, 2=Secondary, 3=Throwable, 4=Deployable, 5=Medical");
+
+            GUILayout.Space(4);
+
+            // Show all slots with their contents.
+            for (var slot = 1; slot <= PlayerInventoryService.SLOT_COUNT; slot++)
             {
-                GUILayout.Label("Equipped: (none)");
-                GUILayout.Label("Hotkeys: 1 Axe, 2 Shovel, 3 Wrench, 4 Hammer, 5 Gas Can");
-                return;
+                var tool = inv.GetToolInSlot(slot);
+                var isActive = slot == inv.ActiveSlot;
+                var marker = isActive ? ">" : " ";
+                var slotName = GetSlotName(slot);
+
+                if (tool == null)
+                {
+                    GUILayout.Label($"{marker} [{slot}] {slotName}: (empty)");
+                }
+                else
+                {
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label($"{marker} [{slot}] {slotName}: {tool.itemId}", GUILayout.Width(280));
+                    GUILayout.Label($"{tool.currentDurability}/{tool.maxDurability}", GUILayout.Width(70));
+                    GUILayout.EndHorizontal();
+                }
             }
 
-            GUILayout.Label($"Equipped: {eq.itemId} ({eq.toolType})");
-            DrawDurabilityBar(eq.currentDurability, eq.maxDurability);
+            GUILayout.Space(4);
+
+            // Show currently equipped item details.
+            var eq = inv.EquippedTool;
+            if (eq != null)
+            {
+                GUILayout.Label($"Equipped: {eq.itemId} ({eq.toolType})");
+                DrawDurabilityBar(eq.currentDurability, eq.maxDurability);
+            }
+        }
+
+        private static string GetSlotName(int slot)
+        {
+            return slot switch
+            {
+                1 => "Primary",
+                2 => "Secondary",
+                3 => "Throwable",
+                4 => "Deployable",
+                5 => "Medical",
+                _ => "Unknown"
+            };
         }
 
         private void DrawDurabilityBar(int current, int max)
@@ -154,7 +194,7 @@ namespace Frontline.UI
         private void DrawTools()
         {
             var inv = PlayerInventoryService.Instance;
-            GUILayout.Label("Tools:");
+            GUILayout.Label("All Tools:");
 
             if (inv.Tools.Count == 0)
             {
@@ -162,7 +202,7 @@ namespace Frontline.UI
                 return;
             }
 
-            _scroll = GUILayout.BeginScrollView(_scroll, GUILayout.Height(120));
+            _scroll = GUILayout.BeginScrollView(_scroll, GUILayout.Height(150));
             for (var i = 0; i < inv.Tools.Count; i++)
             {
                 var t = inv.Tools[i];
@@ -171,16 +211,18 @@ namespace Frontline.UI
 
                 GUILayout.BeginHorizontal();
                 var isEq = i == inv.EquippedToolIndex;
-                GUILayout.Label($"{(isEq ? ">" : " ")} [{i}] {t.itemId}", GUILayout.Width(210));
-                GUILayout.Label($"{t.currentDurability}/{t.maxDurability}", GUILayout.Width(90));
-                if (GUILayout.Button("Equip", GUILayout.Width(80)))
+                // Patch 7.1D: Show slot assignment.
+                var slotInfo = t.slotNumber > 0 ? $"[S{t.slotNumber}]" : "[--]";
+                GUILayout.Label($"{(isEq ? ">" : " ")} {slotInfo} {t.itemId}", GUILayout.Width(220));
+                GUILayout.Label($"{t.currentDurability}/{t.maxDurability}", GUILayout.Width(70));
+                if (GUILayout.Button("Equip", GUILayout.Width(60)))
                     inv.EquipIndex(i);
 
                 // Patch 7B: repair tool/weapon durability.
                 var repairInfo = GetRepairInfo(t);
                 var prev = GUI.enabled;
                 GUI.enabled = repairInfo.canRepair && repairInfo.canAfford;
-                if (GUILayout.Button("Repair", GUILayout.Width(70)))
+                if (GUILayout.Button("Repair", GUILayout.Width(55)))
                     inv.TryRepairTool(i);
                 GUI.enabled = prev;
                 GUILayout.EndHorizontal();

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Frontline.Buildables;
 using Frontline.Crafting;
 using Frontline.Combat;
 using Frontline.Definitions;
@@ -143,11 +144,23 @@ namespace Frontline.Vehicles
             if (_inputsLocked)
                 return;
 
+            // Patch 7.1E: Don't process truck inputs while in build mode.
+            if (BuildablesService.Instance != null && BuildablesService.Instance.IsBuildModeActive)
+                return;
+
             var player = FindDriverCandidate();
             if (!IsOccupied)
             {
-                if (player != null && IsPlayerInRange(player.transform, enterExitDistance) && Input.GetKeyDown(KeyCode.E))
-                    Enter(player);
+                // Patch 7.1E: Use a more generous interaction range check.
+                // Also check if player is looking at the truck (within a cone).
+                if (player != null && Input.GetKeyDown(KeyCode.E))
+                {
+                    var inRange = IsPlayerInRange(player.transform, enterExitDistance * 1.5f); // Slightly more generous
+                    var lookingAt = IsPlayerLookingAtTruck(player.transform);
+
+                    if (inRange || lookingAt)
+                        Enter(player);
+                }
             }
             else
             {
@@ -171,7 +184,7 @@ namespace Frontline.Vehicles
             {
                 var canInteract =
                     (IsOccupied) ||
-                    (player != null && IsPlayerInRange(player.transform, enterExitDistance));
+                    (player != null && IsPlayerInRange(player.transform, enterExitDistance * 1.5f));
 
                 if (canInteract && TransportTruckPanel.Instance != null)
                 {
@@ -181,6 +194,27 @@ namespace Frontline.Vehicles
                         TransportTruckPanel.Instance.Open(this);
                 }
             }
+        }
+
+        /// <summary>
+        /// Patch 7.1E: Checks if the player is looking at this truck via cursor raycast.
+        /// </summary>
+        private bool IsPlayerLookingAtTruck(Transform player)
+        {
+            var cam = Camera.main;
+            if (cam == null)
+                return false;
+
+            var ray = cam.ScreenPointToRay(Input.mousePosition);
+            if (!Physics.Raycast(ray, out var hit, 20f, ~0, QueryTriggerInteraction.Ignore))
+                return false;
+
+            if (hit.collider == null)
+                return false;
+
+            // Check if the hit collider belongs to this truck.
+            var truck = hit.collider.GetComponentInParent<TransportTruckController>();
+            return truck == this;
         }
 
         private void FixedUpdate()

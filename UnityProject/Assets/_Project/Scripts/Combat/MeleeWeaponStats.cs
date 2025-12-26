@@ -35,21 +35,27 @@ namespace Frontline.Combat
                 return false;
             }
 
+            // Patch 7.1F: Rebalanced melee weapon stats.
+            // Damage scales with range (longer reach = harder to balance, so slightly less DPS).
+            // Speed indicates attacks per second.
             if (string.Equals(itemId, KnifeId, StringComparison.Ordinal))
             {
-                stats = new Stats("Knife", rangeMeters: 1f, damage: 6, speed: 8f);
+                // Knife: fast, short range, moderate damage.
+                stats = new Stats("Knife", rangeMeters: 1.2f, damage: 12, speed: 3f);
                 return true;
             }
 
             if (string.Equals(itemId, SwordId, StringComparison.Ordinal))
             {
-                stats = new Stats("Sword", rangeMeters: 2f, damage: 2, speed: 5f);
+                // Sword: medium speed, medium range, good damage.
+                stats = new Stats("Sword", rangeMeters: 1.8f, damage: 18, speed: 2f);
                 return true;
             }
 
             if (string.Equals(itemId, PoleId, StringComparison.Ordinal))
             {
-                stats = new Stats("Pole", rangeMeters: 3f, damage: 3, speed: 3f);
+                // Pole: slow, long range, high damage per hit.
+                stats = new Stats("Pole", rangeMeters: 2.5f, damage: 25, speed: 1.2f);
                 return true;
             }
 

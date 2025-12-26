@@ -115,7 +115,8 @@ namespace Frontline.Combat
             if (cam == null)
                 return;
 
-            // Aim direction from cursor (top-down friendly).
+            // Patch 7.1F: True melee attack - use area-based attack (cone/arc in front of player).
+            // Determine facing direction based on cursor position for aiming.
             var dir = transform.forward;
             var ray = cam.ScreenPointToRay(Input.mousePosition);
             if (Physics.Raycast(ray, out var aimHit, 200f, ~0, QueryTriggerInteraction.Collide))
@@ -132,37 +133,53 @@ namespace Frontline.Combat
                     dir.Normalize();
             }
 
-            var origin = transform.position + Vector3.up * 1.0f;
-            const float radius = 0.6f;
-            var hits = Physics.SphereCastAll(origin, radius, dir, Mathf.Max(0.25f, s.rangeMeters), ~0, QueryTriggerInteraction.Ignore);
+            // Use OverlapSphere to find all targets within weapon range (true melee).
+            var origin = transform.position;
+            origin.y = 0f;
+            var weaponRange = Mathf.Max(0.5f, s.rangeMeters);
+
+            var hits = Physics.OverlapSphere(origin, weaponRange, ~0, QueryTriggerInteraction.Ignore);
             if (hits == null || hits.Length == 0)
                 return;
 
-            // Sort by distance so intervening world geometry can block.
-            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+            // Patch 7.1F: Use a cone/arc filter - only hit targets within ~120 degree arc in front.
+            const float coneAngleDegrees = 120f;
+            var coneAngleCos = Mathf.Cos(coneAngleDegrees * 0.5f * Mathf.Deg2Rad);
 
             Health target = null;
-            foreach (var h in hits)
+            float closestDist = float.MaxValue;
+
+            foreach (var c in hits)
             {
-                var c = h.collider;
-                if (c == null)
-                    continue;
-                if (c.isTrigger)
+                if (c == null || c.isTrigger)
                     continue;
 
                 var hh = c.GetComponentInParent<Health>();
-                if (hh != null)
-                {
-                    if (hh.IsDead)
-                        continue;
-                    if (hh.GetComponent<TacticalPlayerController>() != null)
-                        continue;
-                    target = hh;
-                    break;
-                }
+                if (hh == null || hh.IsDead)
+                    continue;
+                if (hh.GetComponent<TacticalPlayerController>() != null)
+                    continue;
 
-                // First solid hit without Health blocks further hits (prevents hitting through walls).
-                break;
+                // Check if target is within the attack cone.
+                var targetPos = hh.transform.position;
+                targetPos.y = 0f;
+                var toTarget = targetPos - origin;
+                var dist = toTarget.magnitude;
+
+                if (dist > weaponRange)
+                    continue;
+                if (dist < 0.01f)
+                    continue; // Too close (self)
+
+                var dot = Vector3.Dot(dir, toTarget.normalized);
+                if (dot < coneAngleCos)
+                    continue; // Outside the attack arc
+
+                if (dist < closestDist)
+                {
+                    closestDist = dist;
+                    target = hh;
+                }
             }
 
             if (target == null)
