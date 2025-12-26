@@ -12,6 +12,7 @@ using Frontline.Crafting;
 using Frontline.Gameplay;
 using Frontline.Vehicles;
 using Frontline.World;
+using Object = UnityEngine.Object;
 
 namespace Frontline.UI
 {
