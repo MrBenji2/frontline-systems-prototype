@@ -14,7 +14,6 @@ namespace Frontline.Loot
         [SerializeField] private bool convertToSalvage = true;
 
         [Header("Salvage Settings")]
-        [SerializeField] private string salvageResourceId = "mat_salvage";
         [SerializeField] private int salvageAmount = 1;
 
         private float _spawnTime;

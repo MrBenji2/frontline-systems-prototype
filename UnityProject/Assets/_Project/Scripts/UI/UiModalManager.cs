@@ -43,12 +43,12 @@ namespace Frontline.UI
                 if (BuildCatalogPanel.Instance != null && BuildCatalogPanel.Instance.IsOpen)
                     return true;
 
-                // Storage crate panel open.
-                if (StorageCratePanel.Instance != null && StorageCratePanel.Instance.IsOpen)
+                // Storage crate panel open (in Buildables namespace).
+                if (Frontline.Buildables.StorageCratePanel.Instance != null && Frontline.Buildables.StorageCratePanel.Instance.IsOpen)
                     return true;
 
-                // Truck panel open.
-                if (TransportTruckPanel.Instance != null && TransportTruckPanel.Instance.IsOpen)
+                // Truck panel open (in Vehicles namespace).
+                if (Frontline.Vehicles.TransportTruckPanel.Instance != null && Frontline.Vehicles.TransportTruckPanel.Instance.IsOpen)
                     return true;
 
                 // Dev panel (F1) - check via DestroyedPoolDebugPanel.
