@@ -1,4 +1,3 @@
-using TMPro;
 using UnityEngine;
 
 namespace Frontline.UI
@@ -12,7 +11,8 @@ namespace Frontline.UI
         [SerializeField] private float lifetime = 0.8f;
         [SerializeField] private float floatSpeed = 1.2f;
 
-        private TextMeshPro _tmp;
+        private TextMesh _text;
+        private MeshRenderer _renderer;
         private float _spawnTime;
         private Color _baseColor;
 
@@ -25,25 +25,30 @@ namespace Frontline.UI
             var go = new GameObject($"Dmg_{amount}");
             go.transform.position = worldPos;
 
-            var tmp = go.AddComponent<TextMeshPro>();
-            tmp.text = amount.ToString();
-            tmp.fontSize = 4.0f;
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.color = new Color(1f, 0.35f, 0.35f, 1f);
-            tmp.enableWordWrapping = false;
+            // Use built-in TextMesh to avoid hard dependency on TextMeshPro.
+            // (Some Unity installs can have TMP package present but not fully imported/compiled.)
+            var text = go.AddComponent<TextMesh>();
+            text.text = amount.ToString();
+            text.fontSize = 64;
+            text.characterSize = 0.08f;
+            text.anchor = TextAnchor.MiddleCenter;
+            text.alignment = TextAlignment.Center;
+            text.color = new Color(1f, 0.35f, 0.35f, 1f);
 
-            // Make sure it's visible in world space without needing a Canvas.
-            tmp.sortingOrder = 5000;
+            var r = go.GetComponent<MeshRenderer>();
+            if (r != null)
+                r.sortingOrder = 5000;
 
             var fx = go.AddComponent<DamageNumber>();
-            fx._tmp = tmp;
+            fx._text = text;
+            fx._renderer = r;
             fx._spawnTime = Time.time;
-            fx._baseColor = tmp.color;
+            fx._baseColor = text.color;
         }
 
         private void Update()
         {
-            if (_tmp == null)
+            if (_text == null)
             {
                 Destroy(gameObject);
                 return;
@@ -71,7 +76,7 @@ namespace Frontline.UI
 
             var c = _baseColor;
             c.a = Mathf.SmoothStep(1f, 0f, t);
-            _tmp.color = c;
+            _text.color = c;
         }
     }
 }
