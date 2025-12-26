@@ -29,6 +29,10 @@ namespace Frontline.Buildables
 
             // Only used for storage crates.
             public List<ItemStack> stored = new();
+
+            // Milestone 7.3: Storage crate label and upgrade level.
+            public string crateLabel = "";
+            public int crateUpgradeLevel = 0;
         }
 
         public List<BuildableEntry> buildables = new();

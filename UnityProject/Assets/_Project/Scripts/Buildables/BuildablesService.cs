@@ -265,7 +265,12 @@ namespace Frontline.Buildables
 
                     var crate = b.GetComponent<StorageCrate>();
                     if (crate != null)
+                    {
                         e.stored = crate.ToSnapshot();
+                        // Milestone 7.3: Save crate label and upgrade level.
+                        e.crateLabel = crate.Label;
+                        e.crateUpgradeLevel = crate.UpgradeLevel;
+                    }
 
                     var gate = b.GetComponent<GateController>();
                     if (gate != null)
@@ -340,7 +345,14 @@ namespace Frontline.Buildables
 
             var crate = go.GetComponent<StorageCrate>();
             if (crate != null)
+            {
                 crate.LoadFromSnapshot(e.stored);
+                // Milestone 7.3: Load crate label and upgrade level.
+                if (!string.IsNullOrWhiteSpace(e.crateLabel))
+                    crate.Label = e.crateLabel;
+                if (e.crateUpgradeLevel > 0)
+                    crate.SetUpgradeLevelForLoad(e.crateUpgradeLevel);
+            }
 
             var gate = go.GetComponent<GateController>();
             if (gate != null)
@@ -984,8 +996,9 @@ namespace Frontline.Buildables
         }
 
         /// <summary>
-        /// Patch 7.1A: Checks if two volumes truly overlap (not just touching edges).
+        /// Patch 7.1A/7.3: Checks if two volumes truly overlap (not just touching edges).
         /// Returns false for flush adjacency (edges/faces touching but not penetrating).
+        /// Milestone 7.3: Increased tolerance to allow floors, walls, and ramps to touch cleanly.
         /// </summary>
         private static bool IsTrulyOverlapping(Vector3 boxCenter, Vector3 boxExtents, Quaternion boxRot, Bounds otherBounds)
         {
@@ -994,8 +1007,9 @@ namespace Frontline.Buildables
             var localCenter = invRot * (otherBounds.center - boxCenter);
             var localExtents = otherBounds.extents; // Approximate (axis-aligned in world)
 
-            // Check overlap on each axis with a small tolerance for touching faces.
-            const float touchTolerance = 0.03f;
+            // Check overlap on each axis with a generous tolerance for touching faces.
+            // Milestone 7.3: Increased tolerance from 0.03f to 0.08f for better adjacency.
+            const float touchTolerance = 0.08f;
             var overlapX = Mathf.Abs(localCenter.x) < (boxExtents.x + localExtents.x - touchTolerance);
             var overlapY = Mathf.Abs(localCenter.y) < (boxExtents.y + localExtents.y - touchTolerance);
             var overlapZ = Mathf.Abs(localCenter.z) < (boxExtents.z + localExtents.z - touchTolerance);

@@ -19,9 +19,13 @@ namespace Frontline.Tactical
         [Tooltip("Slope limit for ramps and inclines.")]
         [SerializeField] private float slopeLimit = 45f;
 
+        [Header("Milestone 7.3: Camera Lock Movement")]
+        [SerializeField] private float turnSpeed = 180f;
+
         private CharacterController _cc;
         private Vector3 _velocity;
         private float _currentStepHeight;
+        private TopDownCameraController _cameraController;
 
         public Vector3 EyePosition => transform.position + Vector3.up * eyeHeight;
 
@@ -43,17 +47,47 @@ namespace Frontline.Tactical
             }
         }
 
+        private void Start()
+        {
+            // Milestone 7.3: Find camera controller for lock mode.
+            _cameraController = FindFirstObjectByType<TopDownCameraController>();
+        }
+
         private void Update()
         {
             // Milestone 7.2: Update step height based on carried weight.
             UpdateWeightEffects();
 
-            var input = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical"));
-            input = Vector3.ClampMagnitude(input, 1f);
+            var inputH = Input.GetAxisRaw("Horizontal");
+            var inputV = Input.GetAxisRaw("Vertical");
+
+            // Milestone 7.3: Camera lock mode changes movement behavior.
+            var isCameraLocked = _cameraController != null && _cameraController.IsCameraLocked;
+
+            Vector3 moveDir;
+            if (isCameraLocked)
+            {
+                // In camera lock mode: W/S moves forward/back relative to player facing.
+                // A/D strafes (moves perpendicular) without turning.
+                var forward = transform.forward;
+                var right = transform.right;
+                moveDir = (forward * inputV + right * inputH).normalized;
+                moveDir = Vector3.ClampMagnitude(moveDir, 1f);
+
+                // Turn the player to face mouse cursor.
+                FaceMouseCursor();
+            }
+            else
+            {
+                // Default mode: world-space movement.
+                var input = new Vector3(inputH, 0, inputV);
+                input = Vector3.ClampMagnitude(input, 1f);
+                moveDir = input;
+            }
 
             // Milestone 7.2: Apply weight-based speed multiplier.
             var effectiveSpeed = moveSpeed * GetSpeedMultiplier();
-            var desired = input * effectiveSpeed;
+            var desired = moveDir * effectiveSpeed;
 
             _velocity.x = Mathf.MoveTowards(_velocity.x, desired.x, acceleration * Time.deltaTime);
             _velocity.z = Mathf.MoveTowards(_velocity.z, desired.z, acceleration * Time.deltaTime);
@@ -64,6 +98,32 @@ namespace Frontline.Tactical
                 _velocity.y -= gravity * Time.deltaTime;
 
             _cc.Move(_velocity * Time.deltaTime);
+        }
+
+        /// <summary>
+        /// Milestone 7.3: Face the player toward the mouse cursor position.
+        /// </summary>
+        private void FaceMouseCursor()
+        {
+            var cam = Camera.main;
+            if (cam == null)
+                return;
+
+            var ray = cam.ScreenPointToRay(Input.mousePosition);
+            var groundPlane = new Plane(Vector3.up, transform.position);
+
+            if (groundPlane.Raycast(ray, out var distance))
+            {
+                var hitPoint = ray.GetPoint(distance);
+                var lookDir = hitPoint - transform.position;
+                lookDir.y = 0f;
+
+                if (lookDir.sqrMagnitude > 0.01f)
+                {
+                    var targetRot = Quaternion.LookRotation(lookDir);
+                    transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, turnSpeed * Time.deltaTime);
+                }
+            }
         }
 
         /// <summary>
