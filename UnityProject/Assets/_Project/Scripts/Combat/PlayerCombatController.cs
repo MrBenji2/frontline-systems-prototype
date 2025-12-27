@@ -3,6 +3,7 @@ using Frontline.Tactical;
 using Frontline.Buildables;
 using Frontline.Crafting;
 using Frontline.Gameplay;
+using Frontline.PlayerCard;
 using Frontline.World;
 using UnityEngine;
 
@@ -83,7 +84,21 @@ namespace Frontline.Combat
             if (h == null)
                 return;
 
+            // Track damage dealt
+            var wasAlive = !h.IsDead;
             h.ApplyDamage(rangedDamage, gameObject);
+
+            // Record stats
+            var tracker = CombatStatsTracker.Instance;
+            if (tracker != null)
+            {
+                tracker.RecordDamageDealt(rangedDamage, h.gameObject);
+                if (wasAlive && h.IsDead)
+                {
+                    var isPlayer = h.GetComponent<TacticalPlayerController>() != null;
+                    tracker.RecordKill(h.gameObject, isPlayer);
+                }
+            }
         }
 
         private bool IsEquippedMeleeWeapon()
@@ -185,8 +200,22 @@ namespace Frontline.Combat
             if (target == null)
                 return;
 
+            // Track damage dealt
+            var wasAlive = !target.IsDead;
             target.ApplyDamage(s.damage, gameObject);
             PlayerInventoryService.Instance.ConsumeEquippedDurability(1);
+
+            // Record stats
+            var tracker = CombatStatsTracker.Instance;
+            if (tracker != null)
+            {
+                tracker.RecordDamageDealt(s.damage, target.gameObject);
+                if (wasAlive && target.IsDead)
+                {
+                    var isPlayer = target.GetComponent<TacticalPlayerController>() != null;
+                    tracker.RecordKill(target.gameObject, isPlayer);
+                }
+            }
         }
 
         private void TryMelee()
@@ -260,7 +289,23 @@ namespace Frontline.Combat
             }
 
             if (best != null)
+            {
+                // Track damage dealt
+                var wasAlive = !best.IsDead;
                 best.ApplyDamage(meleeDamage, gameObject);
+
+                // Record stats
+                var tracker = CombatStatsTracker.Instance;
+                if (tracker != null)
+                {
+                    tracker.RecordDamageDealt(meleeDamage, best.gameObject);
+                    if (wasAlive && best.IsDead)
+                    {
+                        var isPlayer = best.GetComponent<TacticalPlayerController>() != null;
+                        tracker.RecordKill(best.gameObject, isPlayer);
+                    }
+                }
+            }
         }
 
         private bool IsHarvestingTargetUnderCursor()

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Frontline.Definitions;
+using Frontline.PlayerCard;
 using Frontline.Trust;
 using UnityEngine;
 
@@ -296,6 +297,14 @@ namespace Frontline.Missions
             // Grant rewards
             GrantRewards(def.rewards);
 
+            // Track mission completion in player stats
+            var statsService = PlayerStatsService.Instance;
+            if (statsService != null)
+            {
+                var isTraining = def.category == "training";
+                statsService.RecordMissionCompleted(isTraining);
+            }
+
             SaveToDisk();
             OnMissionCompleted?.Invoke(state.missionId);
         }
@@ -343,6 +352,14 @@ namespace Frontline.Missions
                 return false;
 
             state.status = MissionStatus.Abandoned;
+
+            // Track mission abandon in player stats
+            var statsService = PlayerStatsService.Instance;
+            if (statsService != null)
+            {
+                statsService.RecordMissionAbandoned();
+            }
+
             SaveToDisk();
 
             Debug.Log($"MissionService: Abandoned mission '{missionId}'");

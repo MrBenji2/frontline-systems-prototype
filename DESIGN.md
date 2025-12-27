@@ -567,3 +567,181 @@ Saves on:
 - **Timed missions**: time limits with failure states
 - **Dynamic missions**: generated based on war state
 - **AI mission assignment**: BenjiBot suggests missions based on player skills
+
+---
+
+## Update 2025‑12‑27 – Implementation: Player Card System (Milestone 8.2)
+
+This update documents the implementation of the Player Card system, which provides comprehensive player statistics tracking, name change history, and accountability features.
+
+### Player Card Overview
+
+The Player Card system provides:
+- **Comprehensive stat tracking** across combat, logistics, engineering, and leadership
+- **Name change history** with timestamps and admin-forced flags
+- **Time served tracking** across sessions
+- **Achievement and medal tracking**
+- **Discipline record** (friendly fire, imprisonment, griefing reports)
+
+### Core Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `PlayerStats` | `PlayerStats.cs` | Data structure for all player statistics |
+| `NameChangeRecord` | `PlayerStats.cs` | Records individual name changes |
+| `PlayerCardData` | `PlayerStats.cs` | Combined data for UI display |
+| `PlayerStatsService` | `PlayerStatsService.cs` | Central service for tracking and persisting stats |
+| `CombatStatsTracker` | `CombatStatsTracker.cs` | Hooks into Health system for combat stats |
+| `PlayerCardPanel` | `PlayerCardPanel.cs` | UI panel with tabs for different stat categories |
+| `PlayerCardDebugHotkeys` | `PlayerCardDebugHotkeys.cs` | Debug controls for testing |
+
+### Statistics Tracked
+
+#### Combat Stats
+- Kills (total, player, NPC)
+- Deaths
+- Damage dealt/taken
+- Revives
+- Healing done
+- Friendly fire incidents
+
+#### Logistics Stats
+- Resources gathered
+- Resources delivered
+- Supply runs completed
+- Cargo distance traveled
+
+#### Engineering Stats
+- Structures built
+- Structures repaired
+- Structures demolished
+- Fortifications upgraded
+
+#### Vehicle Stats
+- Distance driven
+- Vehicles operated
+- Vehicle collisions
+
+#### Mission Stats
+- Missions completed (total, training)
+- Missions abandoned
+- Missions failed
+
+#### War Stats
+- Wars participated
+- Wars won
+- Time served (total across sessions)
+
+#### Leadership Stats
+- Orders issued
+- Squad members commanded
+- Largest division size
+- Commendations received/given
+
+#### Discipline Stats
+- Times imprisoned
+- Prison time served
+- Certifications revoked
+- Griefing reports (received, upheld)
+
+### Controls
+
+| Key | Action |
+|-----|--------|
+| **P** | Toggle Player Card panel |
+| **Shift+K** | (Debug) Add 5 kills |
+| **Shift+T** | (Debug) Add 10 trust |
+| **F12** | (Debug) Reset all stats |
+
+### Player Card UI Tabs
+
+1. **Overview**: Quick stats, active certifications, medals
+2. **Combat**: Kills, deaths, damage, medical stats, discipline
+3. **Logistics**: Gathering, delivery, engineering, vehicles, missions
+4. **Leadership**: Command stats, reputation, war record, discipline record
+5. **History**: Account info, name change input, name history, achievements
+
+### Name Change System
+
+- Players can change their name via the Player Card → History tab
+- Name must be 2-24 characters
+- All name changes are recorded with:
+  - Previous name
+  - New name
+  - UTC timestamp
+  - Reason (optional)
+  - Admin-forced flag
+- Name history is visible on Player Card for accountability
+
+### Persistence
+
+Stats save to: `Application.persistentDataPath/player_stats_v1`
+
+Auto-saves:
+- Every 30 seconds
+- On application quit
+- On application pause
+
+### Integration Points
+
+**PlayerCombatController → CombatStatsTracker → PlayerStatsService**:
+- Damage dealt/kills tracked on successful attacks
+
+**BuildablesService → PlayerStatsService**:
+- Structure built/repaired stats tracked
+
+**MissionService → PlayerStatsService**:
+- Mission completed/abandoned stats tracked
+
+**Health.Damaged/Died → CombatStatsTracker**:
+- Player damage taken/deaths tracked
+
+### Files Created
+
+- `Scripts/Systems/PlayerCard/PlayerStats.cs`
+- `Scripts/Systems/PlayerCard/PlayerStatsService.cs`
+- `Scripts/Systems/PlayerCard/CombatStatsTracker.cs`
+- `Scripts/Systems/PlayerCard/PlayerCardDebugHotkeys.cs`
+- `Scripts/UI/PlayerCardPanel.cs`
+
+### Files Modified
+
+- `Scripts/Core/Milestone8Bootstrap.cs` - Added PlayerCard services
+- `Scripts/Combat/PlayerCombatController.cs` - Added stat tracking for damage/kills
+- `Scripts/Buildables/BuildablesService.cs` - Added stat tracking for builds/repairs
+- `Scripts/Systems/Missions/MissionService.cs` - Added stat tracking for mission completions
+
+### Verification Checklist
+
+1. **Player Card UI**:
+   - Press P → Player Card opens
+   - All 5 tabs display correctly
+   - Stats update in real-time
+
+2. **Combat tracking**:
+   - Kill NPCs → kills stat increases
+   - Take damage → damage taken stat increases
+
+3. **Building tracking**:
+   - Place structure → structures built stat increases
+   - Repair structure → structures repaired stat increases
+
+4. **Mission tracking**:
+   - Complete mission → missions completed stat increases
+   - Abandon mission → missions abandoned stat increases
+
+5. **Name change**:
+   - Change name in History tab → name updates
+   - Name history shows previous names
+
+6. **Time served**:
+   - Play session → time served accumulates
+   - Restart game → time served persists
+
+### Future Enhancements
+
+- **Officer promotion conditions**: Use stats (division size, time served, commendations) for eligibility
+- **Medal system**: Award medals for stat milestones (100 kills, 1000 resources delivered, etc.)
+- **Achievement system**: Unlock achievements for specific accomplishments
+- **Leaderboards**: Compare stats across faction/war
+- **API for external tools**: Export stats for websites/Discord bots

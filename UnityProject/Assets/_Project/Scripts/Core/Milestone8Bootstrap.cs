@@ -1,4 +1,5 @@
 using Frontline.Missions;
+using Frontline.PlayerCard;
 using Frontline.UI;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -9,6 +10,9 @@ namespace Frontline.Core
     /// Milestone 8 bootstrap:
     /// - Ensures MissionService singleton exists.
     /// - Ensures MissionHudPanel singleton exists.
+    /// - Ensures PlayerStatsService singleton exists.
+    /// - Ensures PlayerCardPanel singleton exists.
+    /// - Ensures CombatStatsTracker singleton exists.
     /// - Ensures TrainingRangeSpawner exists for the tactical test scene.
     /// </summary>
     public static class Milestone8Bootstrap
@@ -23,15 +27,19 @@ namespace Frontline.Core
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            // Ensure MissionService exists
+            // === Missions ===
             EnsureSingletonGO<MissionService>("_MissionService");
-
-            // Ensure Mission HUD exists
             EnsureSingletonGO<MissionHudPanel>("_MissionHudPanel");
 
-            // Ensure Mission Debug Hotkeys exist (dev builds only)
+            // === Player Card ===
+            EnsureSingletonGO<PlayerStatsService>("_PlayerStatsService");
+            EnsureSingletonGO<PlayerCardPanel>("_PlayerCardPanel");
+            EnsureSingletonGO<CombatStatsTracker>("_CombatStatsTracker");
+
+            // === Debug Hotkeys (dev builds only) ===
             #if UNITY_EDITOR || DEVELOPMENT_BUILD
             EnsureSingletonGO<MissionDebugHotkeys>("_MissionDebugHotkeys");
+            EnsureSingletonGO<PlayerCardDebugHotkeys>("_PlayerCardDebugHotkeys");
             #endif
 
             // Spawn training range in tactical test scenes

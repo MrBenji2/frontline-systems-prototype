@@ -692,6 +692,13 @@ namespace Frontline.Buildables
             // Patch 5.2: settle buildables vertically to eliminate occasional floating.
             StartCoroutine(SettlePlacedBuildable(go));
 
+            // Track structure built stat
+            var statsService = PlayerCard.PlayerStatsService.Instance;
+            if (statsService != null)
+            {
+                statsService.RecordStructureBuilt();
+            }
+
             MarkDirty();
         }
 
@@ -1097,6 +1104,18 @@ namespace Frontline.Buildables
                 return;
 
             buildable.Health.Restore(hp);
+
+            // Track structure repaired stat (once per repair session, not per tick)
+            // We track on the first tick only by checking if it was at max before
+            if (missing >= buildable.Health.MaxHp - hp)
+            {
+                var statsService = PlayerCard.PlayerStatsService.Instance;
+                if (statsService != null)
+                {
+                    statsService.RecordStructureRepaired();
+                }
+            }
+
             MarkDirty();
         }
 

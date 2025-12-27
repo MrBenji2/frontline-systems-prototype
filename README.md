@@ -637,3 +637,52 @@ Mission progress saves to `Application.persistentDataPath/player_missions_v1`
 | G | Mission HUD shows active objectives | PASS |
 | H | Debug hotkeys work (F9/F10/F11) | PASS |
 | I | Mission progress persists across sessions | PASS |
+
+## Milestone 8.2: Player Card System
+
+### Overview
+
+The Player Card system provides comprehensive player statistics tracking, name change history, and accountability features. It tracks everything from combat kills to logistics deliveries, mission completions, and leadership stats.
+
+### Controls
+
+| Key | Action |
+|-----|--------|
+| **P** | Toggle Player Card panel |
+| **Shift+K** | (Debug) Add 5 kills |
+| **Shift+T** | (Debug) Add 10 trust |
+| **F12** | (Debug) Reset all stats |
+
+### UI Tabs
+
+1. **Overview**: Quick stats, active certifications, medals
+2. **Combat**: Kills, deaths, damage, discipline
+3. **Logistics**: Gathering, engineering, vehicles, missions
+4. **Leadership**: Command stats, war record, discipline record
+5. **History**: Account info, name change, name history
+
+### Statistics Tracked
+
+- **Combat**: Kills, deaths, damage dealt/taken, revives, friendly fire
+- **Logistics**: Resources gathered/delivered, structures built/repaired
+- **Leadership**: Orders issued, commendations, war participation
+- **Discipline**: Imprisonment, certifications revoked, griefing reports
+- **Meta**: Time served, name change history
+
+### Persistence
+
+Stats save to `Application.persistentDataPath/player_stats_v1`
+
+### Acceptance Tests
+
+| Test | Description | Status |
+|------|-------------|--------|
+| A | Press P opens Player Card panel | PASS |
+| B | All 5 tabs display correctly | PASS |
+| C | Killing NPCs increases kill count | PASS |
+| D | Building structures increases build count | PASS |
+| E | Completing missions increases mission count | PASS |
+| F | Name change works and records history | PASS |
+| G | Time served accumulates during session | PASS |
+| H | Stats persist across sessions | PASS |
+| I | Debug hotkeys work (Shift+K, Shift+T, F12) | PASS |
