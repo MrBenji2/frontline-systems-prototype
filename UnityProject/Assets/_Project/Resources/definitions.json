@@ -362,10 +362,18 @@
         "displayName": "Basic Rifle Training",
         "description": "Learn to handle a rifle safely and effectively. Complete the shooting course to earn your Rifleman certification.",
         "category": "training",
+        "difficulty": 1,
+        "requiredCertifications": [],
+        "requiredPermissions": [],
+        "minTrustScore": 0,
+        "minRankId": "",
+        "timeLimit": 0,
         "autoAssign": true,
         "repeatable": false,
-        "requiredCertId": "",
-        "requiredPermission": "",
+        "repeatCooldown": 0,
+        "terminalAvailable": true,
+        "faction": "",
+        "terminalTypes": ["training"],
         "objectives": [
           {
             "objectiveId": "approach_range",
@@ -374,7 +382,10 @@
             "targetId": "training_range",
             "requiredCount": 1,
             "optional": false,
-            "order": 1
+            "order": 1,
+            "location": { "x": 10.0, "y": 0.0, "z": 10.0 },
+            "locationRadius": 5.0,
+            "duration": 0
           },
           {
             "objectiveId": "hit_targets",
@@ -383,13 +394,18 @@
             "targetId": "training_target",
             "requiredCount": 5,
             "optional": false,
-            "order": 2
+            "order": 2,
+            "location": { "x": 10.0, "y": 0.0, "z": 25.0 },
+            "locationRadius": 10.0,
+            "duration": 0
           }
         ],
         "rewards": {
           "trustPoints": 5,
           "grantCertification": "infantry_1_rifleman",
-          "items": []
+          "items": [],
+          "credits": 0,
+          "experience": 10
         }
       },
       {
@@ -397,34 +413,164 @@
         "displayName": "Basic Logistics Training",
         "description": "Learn the fundamentals of resource gathering and delivery. Complete a supply run to earn your Runner certification.",
         "category": "training",
+        "difficulty": 1,
+        "requiredCertifications": ["recruit_basic"],
+        "requiredPermissions": [],
+        "minTrustScore": 0,
+        "minRankId": "",
+        "timeLimit": 900,
         "autoAssign": false,
         "repeatable": false,
-        "requiredCertId": "recruit_basic",
-        "requiredPermission": "",
+        "repeatCooldown": 0,
+        "terminalAvailable": true,
+        "faction": "",
+        "terminalTypes": ["training", "logistics"],
         "objectives": [
           {
             "objectiveId": "gather_scrap",
-            "description": "Gather scrap (10)",
+            "description": "Gather 10 units of scrap",
             "type": "gather_resource",
             "targetId": "mat_scrap",
             "requiredCount": 10,
             "optional": false,
-            "order": 1
+            "order": 1,
+            "location": { "x": 315.5, "y": 0.0, "z": 220.1 },
+            "locationRadius": 25.0,
+            "duration": 0
           },
           {
             "objectiveId": "deliver_scrap",
-            "description": "Deliver scrap to a depot",
+            "description": "Deliver the scrap to the logistics hub",
             "type": "deliver_resource",
-            "targetId": "mat_scrap",
+            "targetId": "logistics_hub",
             "requiredCount": 10,
             "optional": false,
-            "order": 2
+            "order": 2,
+            "location": { "x": 298.0, "y": 0.0, "z": 205.0 },
+            "locationRadius": 10.0,
+            "duration": 0
           }
         ],
         "rewards": {
-          "trustPoints": 3,
+          "trustPoints": 5,
           "grantCertification": "logistics_1_runner",
-          "items": []
+          "items": [{ "itemId": "tool_wrench_wood", "quantity": 1 }],
+          "credits": 50,
+          "experience": 15
+        }
+      },
+      {
+        "missionId": "training_basic_engineering",
+        "displayName": "Basic Engineering Training",
+        "description": "Learn to construct and repair structures. Build a foundation and wall to earn your Builder certification.",
+        "category": "training",
+        "difficulty": 2,
+        "requiredCertifications": ["recruit_basic"],
+        "requiredPermissions": [],
+        "minTrustScore": 5,
+        "minRankId": "e1",
+        "timeLimit": 600,
+        "autoAssign": false,
+        "repeatable": false,
+        "repeatCooldown": 0,
+        "terminalAvailable": true,
+        "faction": "",
+        "terminalTypes": ["training", "engineering"],
+        "objectives": [
+          {
+            "objectiveId": "build_foundation",
+            "description": "Build a foundation",
+            "type": "build_structure",
+            "targetId": "build_foundation",
+            "requiredCount": 1,
+            "optional": false,
+            "order": 1,
+            "location": { "x": 150.0, "y": 0.0, "z": 100.0 },
+            "locationRadius": 20.0,
+            "duration": 0
+          },
+          {
+            "objectiveId": "build_wall",
+            "description": "Build a wall on the foundation",
+            "type": "build_structure",
+            "targetId": "build_wall",
+            "requiredCount": 1,
+            "optional": false,
+            "order": 2,
+            "location": { "x": 150.0, "y": 0.0, "z": 100.0 },
+            "locationRadius": 20.0,
+            "duration": 0
+          },
+          {
+            "objectiveId": "repair_structure",
+            "description": "Repair a damaged structure",
+            "type": "repair_structure",
+            "targetId": "",
+            "requiredCount": 1,
+            "optional": false,
+            "order": 3,
+            "location": { "x": 145.0, "y": 0.0, "z": 95.0 },
+            "locationRadius": 30.0,
+            "duration": 0
+          }
+        ],
+        "rewards": {
+          "trustPoints": 8,
+          "grantCertification": "engineering_1_builder",
+          "items": [{ "itemId": "tool_hammer_wood", "quantity": 1 }],
+          "credits": 75,
+          "experience": 20
+        }
+      },
+      {
+        "missionId": "training_basic_medic",
+        "displayName": "Basic Medical Training",
+        "description": "Learn first aid and casualty care. Revive downed soldiers to earn your Medic certification.",
+        "category": "training",
+        "difficulty": 2,
+        "requiredCertifications": ["recruit_basic"],
+        "requiredPermissions": [],
+        "minTrustScore": 5,
+        "minRankId": "e1",
+        "timeLimit": 300,
+        "autoAssign": false,
+        "repeatable": false,
+        "repeatCooldown": 0,
+        "terminalAvailable": true,
+        "faction": "",
+        "terminalTypes": ["training", "medical"],
+        "objectives": [
+          {
+            "objectiveId": "reach_medical_station",
+            "description": "Report to the medical training station",
+            "type": "reach_location",
+            "targetId": "medical_station",
+            "requiredCount": 1,
+            "optional": false,
+            "order": 1,
+            "location": { "x": 200.0, "y": 0.0, "z": 50.0 },
+            "locationRadius": 5.0,
+            "duration": 0
+          },
+          {
+            "objectiveId": "revive_dummy",
+            "description": "Revive training dummies (3)",
+            "type": "hit_target",
+            "targetId": "training_dummy_medical",
+            "requiredCount": 3,
+            "optional": false,
+            "order": 2,
+            "location": { "x": 205.0, "y": 0.0, "z": 55.0 },
+            "locationRadius": 15.0,
+            "duration": 0
+          }
+        ],
+        "rewards": {
+          "trustPoints": 8,
+          "grantCertification": "",
+          "items": [],
+          "credits": 50,
+          "experience": 20
         }
       },
       {
@@ -432,25 +578,227 @@
         "displayName": "Supply Run",
         "description": "Deliver supplies to the front lines. A repeatable mission for logistics players.",
         "category": "logistics",
+        "difficulty": 2,
+        "requiredCertifications": ["logistics_1_runner"],
+        "requiredPermissions": ["log.carry"],
+        "minTrustScore": 0,
+        "minRankId": "",
+        "timeLimit": 1200,
         "autoAssign": false,
         "repeatable": true,
-        "requiredCertId": "logistics_1_runner",
-        "requiredPermission": "log.carry",
+        "repeatCooldown": 3600,
+        "terminalAvailable": true,
+        "faction": "",
+        "terminalTypes": ["logistics", "general"],
         "objectives": [
           {
             "objectiveId": "deliver_materials",
-            "description": "Deliver materials (25)",
+            "description": "Deliver materials to the front (25)",
             "type": "deliver_resource",
             "targetId": "",
             "requiredCount": 25,
             "optional": false,
-            "order": 1
+            "order": 1,
+            "location": { "x": 500.0, "y": 0.0, "z": 800.0 },
+            "locationRadius": 50.0,
+            "duration": 0
           }
         ],
         "rewards": {
           "trustPoints": 2,
           "grantCertification": "",
-          "items": []
+          "items": [],
+          "credits": 100,
+          "experience": 25
+        }
+      },
+      {
+        "missionId": "combat_destroy_outpost",
+        "displayName": "Destroy Enemy Outpost",
+        "description": "Locate and destroy an enemy forward outpost. Neutralize all hostile forces and demolish the structure.",
+        "category": "combat",
+        "difficulty": 5,
+        "requiredCertifications": ["infantry_1_rifleman"],
+        "requiredPermissions": ["inf.basic"],
+        "minTrustScore": 20,
+        "minRankId": "e3",
+        "timeLimit": 1800,
+        "autoAssign": false,
+        "repeatable": true,
+        "repeatCooldown": 7200,
+        "terminalAvailable": true,
+        "faction": "",
+        "terminalTypes": ["combat", "general"],
+        "objectives": [
+          {
+            "objectiveId": "reach_outpost",
+            "description": "Locate the enemy outpost",
+            "type": "reach_location",
+            "targetId": "enemy_outpost",
+            "requiredCount": 1,
+            "optional": false,
+            "order": 1,
+            "location": { "x": 750.0, "y": 25.0, "z": 1200.0 },
+            "locationRadius": 30.0,
+            "duration": 0
+          },
+          {
+            "objectiveId": "kill_defenders",
+            "description": "Eliminate enemy defenders (8)",
+            "type": "kill_npc",
+            "targetId": "enemy_soldier",
+            "requiredCount": 8,
+            "optional": false,
+            "order": 2,
+            "location": { "x": 750.0, "y": 25.0, "z": 1200.0 },
+            "locationRadius": 50.0,
+            "duration": 0
+          },
+          {
+            "objectiveId": "destroy_structure",
+            "description": "Destroy the outpost structure",
+            "type": "sabotage_target",
+            "targetId": "enemy_outpost_structure",
+            "requiredCount": 1,
+            "optional": false,
+            "order": 3,
+            "location": { "x": 755.0, "y": 25.0, "z": 1205.0 },
+            "locationRadius": 10.0,
+            "duration": 0
+          }
+        ],
+        "rewards": {
+          "trustPoints": 15,
+          "grantCertification": "",
+          "items": [{ "itemId": "itm_alloy_bundle", "quantity": 2 }],
+          "credits": 300,
+          "experience": 75
+        }
+      },
+      {
+        "missionId": "recon_survey_area",
+        "displayName": "Reconnaissance Survey",
+        "description": "Survey a contested area and report enemy positions. Avoid engagement if possible.",
+        "category": "recon",
+        "difficulty": 3,
+        "requiredCertifications": ["infantry_1_rifleman"],
+        "requiredPermissions": [],
+        "minTrustScore": 10,
+        "minRankId": "e2",
+        "timeLimit": 900,
+        "autoAssign": false,
+        "repeatable": true,
+        "repeatCooldown": 1800,
+        "terminalAvailable": true,
+        "faction": "",
+        "terminalTypes": ["combat", "recon"],
+        "objectives": [
+          {
+            "objectiveId": "reach_survey_point_1",
+            "description": "Reach survey point Alpha",
+            "type": "reach_location",
+            "targetId": "survey_alpha",
+            "requiredCount": 1,
+            "optional": false,
+            "order": 1,
+            "location": { "x": 600.0, "y": 15.0, "z": 900.0 },
+            "locationRadius": 10.0,
+            "duration": 0
+          },
+          {
+            "objectiveId": "reach_survey_point_2",
+            "description": "Reach survey point Bravo",
+            "type": "reach_location",
+            "targetId": "survey_bravo",
+            "requiredCount": 1,
+            "optional": false,
+            "order": 2,
+            "location": { "x": 650.0, "y": 20.0, "z": 950.0 },
+            "locationRadius": 10.0,
+            "duration": 0
+          },
+          {
+            "objectiveId": "reach_survey_point_3",
+            "description": "Reach survey point Charlie",
+            "type": "reach_location",
+            "targetId": "survey_charlie",
+            "requiredCount": 1,
+            "optional": true,
+            "order": 3,
+            "location": { "x": 700.0, "y": 25.0, "z": 1000.0 },
+            "locationRadius": 10.0,
+            "duration": 0
+          }
+        ],
+        "rewards": {
+          "trustPoints": 5,
+          "grantCertification": "",
+          "items": [],
+          "credits": 150,
+          "experience": 35
+        }
+      },
+      {
+        "missionId": "defense_hold_position",
+        "displayName": "Hold the Line",
+        "description": "Defend a strategic position against enemy assault. Hold for the required duration.",
+        "category": "combat",
+        "difficulty": 6,
+        "requiredCertifications": ["infantry_1_rifleman"],
+        "requiredPermissions": ["inf.basic"],
+        "minTrustScore": 30,
+        "minRankId": "e4",
+        "timeLimit": 600,
+        "autoAssign": false,
+        "repeatable": true,
+        "repeatCooldown": 10800,
+        "terminalAvailable": true,
+        "faction": "",
+        "terminalTypes": ["combat"],
+        "objectives": [
+          {
+            "objectiveId": "reach_defense_point",
+            "description": "Reach the defense position",
+            "type": "reach_location",
+            "targetId": "defense_point",
+            "requiredCount": 1,
+            "optional": false,
+            "order": 1,
+            "location": { "x": 400.0, "y": 10.0, "z": 600.0 },
+            "locationRadius": 20.0,
+            "duration": 0
+          },
+          {
+            "objectiveId": "defend_area",
+            "description": "Defend the position (5 minutes)",
+            "type": "defend_location",
+            "targetId": "defense_zone",
+            "requiredCount": 1,
+            "optional": false,
+            "order": 2,
+            "location": { "x": 400.0, "y": 10.0, "z": 600.0 },
+            "locationRadius": 30.0,
+            "duration": 300
+          },
+          {
+            "objectiveId": "eliminate_attackers",
+            "description": "Eliminate attacking forces (10)",
+            "type": "kill_npc",
+            "targetId": "enemy_soldier",
+            "requiredCount": 10,
+            "optional": true,
+            "order": 3,
+            "location": { "x": 400.0, "y": 10.0, "z": 600.0 },
+            "locationRadius": 50.0,
+            "duration": 0
+          }
+        ],
+        "rewards": {
+          "trustPoints": 20,
+          "grantCertification": "",
+          "items": [{ "itemId": "itm_components_bundle", "quantity": 1 }],
+          "credits": 400,
+          "experience": 100
         }
       }
     ]

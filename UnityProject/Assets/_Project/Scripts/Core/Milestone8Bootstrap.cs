@@ -10,6 +10,7 @@ namespace Frontline.Core
     /// Milestone 8 bootstrap:
     /// - Ensures MissionService singleton exists.
     /// - Ensures MissionHudPanel singleton exists.
+    /// - Ensures MissionTerminalPanel singleton exists.
     /// - Ensures PlayerStatsService singleton exists.
     /// - Ensures PlayerCardPanel singleton exists.
     /// - Ensures CombatStatsTracker singleton exists.
@@ -30,6 +31,7 @@ namespace Frontline.Core
             // === Missions ===
             EnsureSingletonGO<MissionService>("_MissionService");
             EnsureSingletonGO<MissionHudPanel>("_MissionHudPanel");
+            EnsureSingletonGO<MissionTerminalPanel>("_MissionTerminalPanel");
 
             // === Player Card ===
             EnsureSingletonGO<PlayerStatsService>("_PlayerStatsService");

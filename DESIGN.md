@@ -745,3 +745,241 @@ Auto-saves:
 - **Achievement system**: Unlock achievements for specific accomplishments
 - **Leaderboards**: Compare stats across faction/war
 - **API for external tools**: Export stats for websites/Discord bots
+
+---
+
+## Update 2025‑12‑27 – Implementation: Mission Terminal System (Milestone 8.3)
+
+This update documents the SWG-inspired mission terminal system, enhancing the mission framework with terminal-based browsing, time limits, difficulty scaling, and location data.
+
+### Star Wars Galaxies Inspiration
+
+The terminal system draws from SWG's mission terminals:
+- Players interact with terminals to browse available missions
+- Missions display title, description, time limit, and rewards
+- Difficulty scales with better rewards
+- Destroy missions require eliminating targets; delivery missions involve transport
+- Terminals filter missions by type (training, combat, logistics, etc.)
+
+### Enhanced Mission Schema
+
+#### MissionDefinition (New Fields)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `difficulty` | int | Difficulty 1-10 (affects rewards, terminal filtering) |
+| `requiredCertifications` | List<string> | All certs required to accept |
+| `requiredPermissions` | List<string> | All permissions required to accept |
+| `minTrustScore` | int | Minimum trust score required |
+| `minRankId` | string | Minimum rank required (e.g., "e3") |
+| `timeLimit` | float | Time limit in seconds (0 = no limit) |
+| `repeatCooldown` | float | Cooldown between repeats (seconds) |
+| `terminalAvailable` | bool | Whether this mission appears at terminals |
+| `faction` | string | Faction alignment (empty = neutral) |
+| `terminalTypes` | List<string> | Terminal types that can offer this mission |
+
+#### MissionObjectiveDefinition (New Fields)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `location` | MissionLocation | World coordinates (x, y, z) for waypoints |
+| `locationRadius` | float | Radius around location to satisfy reach objectives |
+| `duration` | float | Duration for timed objectives (e.g., defend_location) |
+
+#### MissionRewardsDefinition (New Fields)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `credits` | int | Currency awarded |
+| `experience` | int | XP awarded (future system) |
+
+#### MissionLocation Structure
+
+```csharp
+public sealed class MissionLocation
+{
+    public float x;
+    public float y;
+    public float z;
+    public bool IsValid => x != 0 || y != 0 || z != 0;
+    public Vector3 ToVector3();
+    public float DistanceTo(Vector3 pos);
+}
+```
+
+#### New Objective Types
+
+| Type | Description |
+|------|-------------|
+| `defend_location` | Defend an area for a duration |
+| `escort_target` | Escort a target to a destination |
+| `sabotage_target` | Sabotage an enemy structure |
+| `repair_structure` | Repair a damaged structure |
+
+### Mission Terminal Component
+
+Place `MissionTerminal` on interactable world objects:
+
+```csharp
+public sealed class MissionTerminal : MonoBehaviour
+{
+    [SerializeField] private string _terminalType = "general";
+    [SerializeField] private string _displayName = "Mission Terminal";
+    [SerializeField] private string _faction = "";
+    [SerializeField] private float _interactionRange = 3f;
+}
+```
+
+**Features**:
+- Player proximity detection with range check
+- Press [E] to interact when in range
+- Filters missions by terminal type
+- Caches available missions for performance
+- Opens `MissionTerminalPanel` UI on interaction
+
+### Mission Terminal UI
+
+The `MissionTerminalPanel` provides an SWG-style interface:
+
+| Section | Content |
+|---------|---------|
+| Category Filter | Filter by training, combat, logistics, etc. |
+| Mission List | Scrollable list with difficulty stars |
+| Mission Details | Full description, objectives, rewards |
+| Accept Button | Accept selected mission |
+
+**UI Features**:
+- Difficulty shown as ★★★☆☆ (1-5 scale)
+- Time limit displayed when applicable
+- Objective locations shown with coordinates
+- Rewards breakdown (trust, credits, XP, items, certs)
+
+### Time Limit System
+
+Missions with time limits are tracked automatically:
+
+- `MissionService` checks time limits every 5 seconds
+- `OnMissionTimeUpdate` event fires with seconds remaining
+- `OnMissionFailed` event fires when time expires
+- HUD displays time remaining with color coding:
+  - Green: > 3 minutes
+  - Yellow: 1-3 minutes
+  - Red: < 1 minute
+
+### Controls
+
+| Key | Action |
+|-----|--------|
+| **E** | Interact with terminal (when in range) |
+| **M** | Toggle mission HUD panel |
+| **Escape** | Close terminal panel |
+
+### Example Mission Definition (JSON)
+
+```json
+{
+  "missionId": "training_basic_logistics",
+  "displayName": "Basic Logistics Training",
+  "description": "Learn to gather and transport resources.",
+  "category": "training",
+  "difficulty": 1,
+  "requiredCertifications": ["recruit_basic"],
+  "requiredPermissions": [],
+  "minTrustScore": 0,
+  "minRankId": "",
+  "timeLimit": 900,
+  "autoAssign": false,
+  "repeatable": false,
+  "repeatCooldown": 0,
+  "terminalAvailable": true,
+  "faction": "",
+  "terminalTypes": ["training", "logistics"],
+  "objectives": [
+    {
+      "objectiveId": "gather_scrap",
+      "description": "Gather 10 units of scrap",
+      "type": "gather_resource",
+      "targetId": "mat_scrap",
+      "requiredCount": 10,
+      "optional": false,
+      "order": 1,
+      "location": { "x": 315.5, "y": 0.0, "z": 220.1 },
+      "locationRadius": 25.0,
+      "duration": 0
+    },
+    {
+      "objectiveId": "deliver_scrap",
+      "description": "Deliver the scrap to the logistics hub",
+      "type": "deliver_resource",
+      "targetId": "logistics_hub",
+      "requiredCount": 10,
+      "optional": false,
+      "order": 2,
+      "location": { "x": 298.0, "y": 0.0, "z": 205.0 },
+      "locationRadius": 10.0,
+      "duration": 0
+    }
+  ],
+  "rewards": {
+    "trustPoints": 5,
+    "grantCertification": "logistics_1_runner",
+    "items": [{ "itemId": "tool_wrench_wood", "quantity": 1 }],
+    "credits": 50,
+    "experience": 15
+  }
+}
+```
+
+### Files Created
+
+- `Scripts/Systems/Missions/MissionTerminal.cs` - Terminal interaction component
+- `Scripts/UI/MissionTerminalPanel.cs` - Terminal UI panel
+
+### Files Modified
+
+- `Scripts/Systems/Missions/MissionDefinition.cs` - Added new fields and MissionLocation
+- `Scripts/Systems/Missions/MissionService.cs` - Added time tracking, location checking, terminal filtering
+- `Scripts/UI/MissionHudPanel.cs` - Added time display, failure notifications
+- `Scripts/Core/Milestone8Bootstrap.cs` - Added MissionTerminalPanel initialization
+- `Resources/definitions.json` - Enhanced mission definitions with new schema
+
+### New Missions Added
+
+| Mission ID | Category | Difficulty | Time Limit | Rewards |
+|------------|----------|------------|------------|---------|
+| `training_basic_engineering` | training | 2 | 10 min | Builder cert, 75 credits |
+| `training_basic_medic` | training | 2 | 5 min | 50 credits |
+| `combat_destroy_outpost` | combat | 5 | 30 min | 300 credits, 15 trust |
+| `recon_survey_area` | recon | 3 | 15 min | 150 credits |
+| `defense_hold_position` | combat | 6 | 10 min | 400 credits, 20 trust |
+
+### Verification Checklist
+
+1. **Mission Terminal Interaction**:
+   - Walk near terminal → prompt appears
+   - Press E → terminal panel opens
+   - Browse missions by category
+   - Accept mission → panel updates
+
+2. **Time Limits**:
+   - Accept timed mission → timer shows in HUD
+   - Timer counts down in real-time
+   - Time expires → mission fails with notification
+
+3. **Difficulty and Rewards**:
+   - Higher difficulty missions show more stars
+   - Rewards scale with difficulty
+   - Credits and XP shown in preview
+
+4. **Location Data**:
+   - Objectives show coordinates when available
+   - `GetObjectiveLocation()` returns world position
+
+### Future Enhancements
+
+- **Waypoint markers**: Draw objective locations on HUD/map
+- **Terminal placement editor**: Designer tool for placing terminals
+- **Dynamic mission generation**: Procedural missions based on war state
+- **Mission chains**: Sequential missions that unlock next steps
+- **Faction-specific terminals**: Different missions per faction
+- **Elite missions**: High-difficulty, high-reward missions for experienced players

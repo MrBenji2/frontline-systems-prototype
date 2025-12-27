@@ -51,6 +51,7 @@ namespace Frontline.UI
             {
                 missionService.OnMissionCompleted += HandleMissionCompleted;
                 missionService.OnObjectiveProgress += HandleObjectiveProgress;
+                missionService.OnMissionFailed += HandleMissionFailed;
             }
         }
 
@@ -61,7 +62,22 @@ namespace Frontline.UI
             {
                 missionService.OnMissionCompleted -= HandleMissionCompleted;
                 missionService.OnObjectiveProgress -= HandleObjectiveProgress;
+                missionService.OnMissionFailed -= HandleMissionFailed;
             }
+        }
+
+        private void HandleMissionFailed(string missionId, string reason)
+        {
+            var missionService = MissionService.Instance;
+            var def = missionService?.GetMissionDefinition(missionId);
+            var displayName = def?.displayName ?? missionId;
+
+            _notifications.Add(new CompletionNotification
+            {
+                Message = $"Mission Failed: {displayName}\n{reason}",
+                ExpireTime = Time.time + NotificationDuration,
+                Color = new Color(0.9f, 0.3f, 0.3f)
+            });
         }
 
         private void Update()
@@ -233,7 +249,16 @@ namespace Frontline.UI
                 if (def == null)
                     continue;
 
-                lines.Add($"\n<color=#FFD700>{def.displayName}</color>");
+                // Show time remaining if timed mission
+                var timeRemaining = missionService.GetTimeRemaining(state.missionId);
+                var timeText = "";
+                if (timeRemaining > 0)
+                {
+                    var timeColor = timeRemaining < 60 ? "#FF4444" : (timeRemaining < 180 ? "#FFAA44" : "#AAFFAA");
+                    timeText = $" <color={timeColor}>[{MissionService.FormatTime((int)timeRemaining)}]</color>";
+                }
+
+                lines.Add($"\n<color=#FFD700>{def.displayName}</color>{timeText}");
 
                 foreach (var objDef in def.objectives.Where(o => !o.optional).OrderBy(o => o.order))
                 {
@@ -352,7 +377,22 @@ namespace Frontline.UI
 
             GUILayout.BeginVertical(GUI.skin.box);
 
-            GUILayout.Label($"<color=#FFD700><b>{def.displayName}</b></color>");
+            // Title with time remaining
+            var timeRemaining = missionService.GetTimeRemaining(state.missionId);
+            if (timeRemaining > 0)
+            {
+                var timeColor = timeRemaining < 60 ? "#FF4444" : (timeRemaining < 180 ? "#FFAA44" : "#AAFFAA");
+                GUILayout.BeginHorizontal();
+                GUILayout.Label($"<color=#FFD700><b>{def.displayName}</b></color>");
+                GUILayout.FlexibleSpace();
+                GUILayout.Label($"<color={timeColor}><b>{MissionService.FormatTime((int)timeRemaining)}</b></color>");
+                GUILayout.EndHorizontal();
+            }
+            else
+            {
+                GUILayout.Label($"<color=#FFD700><b>{def.displayName}</b></color>");
+            }
+
             GUILayout.Label($"<size=11>{def.description}</size>");
             GUILayout.Space(5);
 
@@ -404,13 +444,47 @@ namespace Frontline.UI
         {
             GUILayout.BeginVertical(GUI.skin.box);
 
+            // Title with difficulty
+            var difficultyStars = new string('★', Mathf.Clamp(def.difficulty, 1, 5));
+            GUILayout.BeginHorizontal();
             GUILayout.Label($"<b>{def.displayName}</b>");
+            GUILayout.FlexibleSpace();
+            GUILayout.Label($"<color=#FFDD44>{difficultyStars}</color>");
+            GUILayout.EndHorizontal();
+
             GUILayout.Label($"<size=11>{def.description}</size>");
 
-            // Requirements
-            if (!string.IsNullOrWhiteSpace(def.requiredCertId))
+            // Time limit and category
+            GUILayout.BeginHorizontal();
+            if (def.timeLimit > 0)
             {
-                GUILayout.Label($"<size=10><color=#FFAAAA>Requires: {def.requiredCertId}</color></size>");
+                GUILayout.Label($"<size=10>Time: {MissionService.FormatTime((int)def.timeLimit)}</size>");
+            }
+            if (!string.IsNullOrWhiteSpace(def.category))
+            {
+                GUILayout.Label($"<size=10>Category: {def.category}</size>");
+            }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
+            // Requirements
+            if (def.requiredCertifications.Count > 0)
+            {
+                GUILayout.Label($"<size=10><color=#FFAAAA>Requires: {string.Join(", ", def.requiredCertifications)}</color></size>");
+            }
+
+            // Rewards preview
+            var rewards = new List<string>();
+            if (def.rewards.trustPoints > 0)
+                rewards.Add($"+{def.rewards.trustPoints} Trust");
+            if (def.rewards.credits > 0)
+                rewards.Add($"{def.rewards.credits} Credits");
+            if (!string.IsNullOrWhiteSpace(def.rewards.grantCertification))
+                rewards.Add($"Cert: {def.rewards.grantCertification}");
+
+            if (rewards.Count > 0)
+            {
+                GUILayout.Label($"<size=10><color=#AAFFAA>Rewards: {string.Join(", ", rewards)}</color></size>");
             }
 
             // Accept button

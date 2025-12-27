@@ -686,3 +686,102 @@ Stats save to `Application.persistentDataPath/player_stats_v1`
 | G | Time served accumulates during session | PASS |
 | H | Stats persist across sessions | PASS |
 | I | Debug hotkeys work (Shift+K, Shift+T, F12) | PASS |
+
+## Milestone 8.3: Mission Terminal System
+
+### Overview
+
+SWG-inspired mission terminal system that allows players to browse and accept missions from in-world terminals. Missions now have time limits, difficulty scaling, location coordinates, and terminal availability.
+
+### Features
+
+- **Mission terminals**: Interactable world objects for mission browsing
+- **Time limits**: Missions can have time limits; failure notification on expiry
+- **Difficulty scaling**: 1-10 difficulty with star display (★★★☆☆)
+- **Location data**: Objectives include x,y,z coordinates for waypoints
+- **Rewards**: Trust, credits, experience, items, certifications
+- **Repeatable missions**: Cooldown between repeats
+
+### Controls
+
+| Key | Action |
+|-----|--------|
+| **E** | Interact with terminal (when in range) |
+| **M** | Toggle mission HUD panel |
+| **Escape** | Close terminal panel |
+
+### Terminal Types
+
+- `training`: Training missions (rifle, logistics, engineering)
+- `combat`: Combat and destroy missions
+- `logistics`: Supply runs and delivery missions
+- `recon`: Survey and reconnaissance missions
+- `general`: All mission types
+
+### New Missions
+
+| Mission | Category | Difficulty | Time Limit | Rewards |
+|---------|----------|------------|------------|---------|
+| `training_basic_engineering` | training | 2 | 10 min | Builder cert, 75 credits |
+| `training_basic_medic` | training | 2 | 5 min | 50 credits |
+| `combat_destroy_outpost` | combat | 5 | 30 min | 300 credits, 15 trust |
+| `recon_survey_area` | recon | 3 | 15 min | 150 credits |
+| `defense_hold_position` | combat | 6 | 10 min | 400 credits, 20 trust |
+
+### Mission JSON Schema
+
+```json
+{
+  "missionId": "example_mission",
+  "displayName": "Example Mission",
+  "description": "Mission description here.",
+  "category": "training",
+  "difficulty": 2,
+  "requiredCertifications": ["recruit_basic"],
+  "requiredPermissions": [],
+  "minTrustScore": 5,
+  "minRankId": "e1",
+  "timeLimit": 600,
+  "autoAssign": false,
+  "repeatable": false,
+  "repeatCooldown": 3600,
+  "terminalAvailable": true,
+  "faction": "",
+  "terminalTypes": ["training"],
+  "objectives": [
+    {
+      "objectiveId": "obj_1",
+      "description": "Complete objective",
+      "type": "reach_location",
+      "targetId": "location_id",
+      "requiredCount": 1,
+      "optional": false,
+      "order": 1,
+      "location": { "x": 100.0, "y": 0.0, "z": 200.0 },
+      "locationRadius": 10.0,
+      "duration": 0
+    }
+  ],
+  "rewards": {
+    "trustPoints": 5,
+    "grantCertification": "",
+    "items": [],
+    "credits": 100,
+    "experience": 25
+  }
+}
+```
+
+### Acceptance Tests
+
+| Test | Description | Status |
+|------|-------------|--------|
+| A | Walk near terminal → interaction prompt appears | PASS |
+| B | Press E → terminal panel opens | PASS |
+| C | Filter missions by category | PASS |
+| D | Accept mission from terminal | PASS |
+| E | Timed mission shows countdown in HUD | PASS |
+| F | Mission fails when time expires | PASS |
+| G | Repeatable missions respect cooldown | PASS |
+| H | Difficulty stars display correctly | PASS |
+| I | Objectives show location coordinates | PASS |
