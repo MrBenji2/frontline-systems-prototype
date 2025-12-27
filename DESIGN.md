@@ -278,3 +278,105 @@ Below is a non‑exhaustive sample of permission strings used in the certificati
 - **12. Cross‑Platform & Communication**: Implement cross‑platform support (PC, console, mobile) with platform‑specific UI/UX. Add text‑based communication system with keyword flagging and auto‑deletion. Ensure persistent and interoperable universe across platforms.
 
 - **13. Prison & Discipline System**: Introduce prison system as an alternative to bans. Implement penal tasks, restricted capabilities, sentence mechanics and stat card recording. Provide tools for officers/admins to manage disciplinary actions.
+
+---
+
+## Update 2025‑12‑27 – Implementation: Recruit Certification & Extended Rank Ladder
+
+This update documents the specific implementation details for the recruit certification restrictions and extended rank ladder, aligning the codebase with the design principles established above.
+
+### Recruit Certification (Implementation)
+
+**Rationale**: The Direction section states "when you first join, you spawn as an untrained recruit and can only carry supplies." To enforce this, new players start with restricted permissions and must complete training to unlock weapon use.
+
+**Implementation** (`definitions.json`):
+
+```json
+{
+  "ladderId": "recruit",
+  "displayName": "Recruit",
+  "category": "Basic",
+  "tiers": [
+    {
+      "tier": 1,
+      "certId": "recruit_basic",
+      "displayName": "Recruit",
+      "permissions": ["log.carry", "inf.unarmed"],
+      "requirements": { "type": "auto_grant" },
+      "version": 1,
+      "expires": { "mode": "never", "days": null }
+    }
+  ]
+}
+```
+
+**Permissions granted at spawn**:
+- `log.carry` – Can carry raw resources and processed materials
+- `inf.unarmed` – Can move, interact, and perform basic actions (no weapons)
+
+**Unlocking weapons**: Players earn `inf.basic` (rifle use) by completing the `training_basic_rifle` mission. The Infantry I (Rifleman) certification now requires this training:
+
+```json
+{
+  "tier": 1,
+  "certId": "infantry_1_rifleman",
+  "displayName": "Rifleman",
+  "permissions": ["inf.basic"],
+  "requirements": { "type": "training_mission", "missionId": "training_basic_rifle" },
+  ...
+}
+```
+
+**Code change** (`TrustService.cs`): New player profiles are granted `recruit_basic` instead of `infantry_1_rifleman`.
+
+### Extended Rank Ladder (Implementation)
+
+**Rationale**: The Update 2025‑12‑27 section specifies a long‑form progression with separate enlisted and officer tracks. This prevents players from "tapping out" quickly and ties advancement to trust, contributions, and peer presence.
+
+**Implementation** (`definitions.json`):
+
+#### Enlisted Ranks (12 tiers)
+
+| Rank ID | Display Name | Min Trust | Track |
+|---------|--------------|-----------|-------|
+| `e0` | Recruit | 0 | enlisted |
+| `e1` | Private | 10 | enlisted |
+| `e2` | Private First Class | 18 | enlisted |
+| `e3` | Lance Corporal | 28 | enlisted |
+| `e4` | Corporal | 40 | enlisted |
+| `e5` | Sergeant | 55 | enlisted |
+| `e6` | Staff Sergeant | 75 | enlisted |
+| `e7` | Sergeant First Class | 100 | enlisted |
+| `e8` | Master Sergeant | 130 | enlisted |
+| `e9` | First Sergeant | 165 | enlisted |
+| `e10` | Sergeant Major | 200 | enlisted |
+| `e11` | Command Sergeant Major | 250 | enlisted |
+
+#### Officer Ranks (11 tiers)
+
+| Rank ID | Display Name | Min Trust | Track |
+|---------|--------------|-----------|-------|
+| `o1` | Second Lieutenant | 300 | officer |
+| `o2` | First Lieutenant | 400 | officer |
+| `o3` | Captain | 500 | officer |
+| `o4` | Major | 650 | officer |
+| `o5` | Lieutenant Colonel | 800 | officer |
+| `o6` | Colonel | 1000 | officer |
+| `o7` | Brigadier General | 1500 | officer |
+| `o8` | Major General | 2000 | officer |
+| `o9` | Lieutenant General | 3000 | officer |
+| `o10` | General | 5000 | officer |
+| `o11` | Field Marshal | 10000 | officer |
+
+**Code changes**:
+- `RankDefinition.cs`: Added `track` field ("enlisted" or "officer")
+- `TrustService.cs`: Updated fallback rank ID from `r0` to `e0`
+- `PlayerTrustState.cs`: Updated default rank ID to `e0`
+
+**Future work**: Officer promotions should additionally require:
+- Division size threshold (number of players under command)
+- Presence of peer officers at the same rank
+- Mission success rate and commendations
+- Time served requirements
+
+These conditions are documented in the design but not yet implemented in code.
