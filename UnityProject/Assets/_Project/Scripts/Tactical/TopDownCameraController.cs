@@ -9,16 +9,21 @@ namespace Frontline.Tactical
         [Header("Rig")]
         [SerializeField] private Vector3 offset = new Vector3(0, 18f, -14f);
         [SerializeField] private float followSharpness = 12f;
-        [SerializeField] private float yawDegrees = 0f;
         [SerializeField] private float pitchDegrees = 55f;
 
-        [Header("Milestone 7.3: Camera Lock")]
+        [Header("Camera Lock (C key)")]
         [Tooltip("When enabled, camera locks behind the player. A/D strafes instead of rotating.")]
         [SerializeField] private bool cameraLocked = false;
         [SerializeField] private KeyCode toggleLockKey = KeyCode.C;
         [SerializeField] private float lockedYawSmoothing = 8f;
 
-        private float _currentLockedYaw;
+        [Header("Milestone 7.4: Free Camera (Unlocked)")]
+        [Tooltip("Mouse sensitivity for free camera rotation.")]
+        [SerializeField] private float mouseSensitivity = 2.0f;
+
+        // Milestone 7.4: Separate yaw tracking for locked and free modes.
+        private float _lockedYaw;   // Used when camera is locked (follows player facing)
+        private float _freeYaw;     // Used when camera is unlocked (mouse-controlled)
 
         public Transform Target
         {
@@ -35,16 +40,49 @@ namespace Frontline.Tactical
             set => cameraLocked = value;
         }
 
+        /// <summary>
+        /// Milestone 7.4: Current free camera yaw (for external queries).
+        /// </summary>
+        public float FreeYaw => _freeYaw;
+
+        private void Start()
+        {
+            // Initialize free yaw to 0 (looking forward on world Z axis).
+            _freeYaw = 0f;
+            _lockedYaw = target != null ? target.eulerAngles.y : 0f;
+        }
+
         private void Update()
         {
-            // Milestone 7.3: Toggle camera lock with C key.
+            // Toggle camera lock with C key.
             if (Input.GetKeyDown(toggleLockKey))
             {
                 cameraLocked = !cameraLocked;
+
                 if (cameraLocked && target != null)
                 {
-                    // Initialize locked yaw to current player facing.
-                    _currentLockedYaw = target.eulerAngles.y;
+                    // Switching to locked mode: snap locked yaw to player facing.
+                    _lockedYaw = target.eulerAngles.y;
+                }
+                else
+                {
+                    // Milestone 7.4: Switching to free mode: preserve current camera angle.
+                    // This prevents jarring rotation when unlocking.
+                    _freeYaw = _lockedYaw;
+                }
+            }
+
+            // Milestone 7.4: Handle mouse input for free camera mode.
+            if (!cameraLocked)
+            {
+                // Only rotate camera when right mouse button is held OR always (choose one).
+                // For Foxhole-like gameplay, we'll use direct mouse delta without button requirement.
+                var mouseX = Input.GetAxis("Mouse X");
+                if (Mathf.Abs(mouseX) > 0.001f)
+                {
+                    _freeYaw += mouseX * mouseSensitivity;
+                    // Normalize to 0-360 range to prevent floating-point issues.
+                    _freeYaw = Mathf.Repeat(_freeYaw, 360f);
                 }
             }
         }
@@ -58,16 +96,16 @@ namespace Frontline.Tactical
 
             if (cameraLocked)
             {
-                // Milestone 7.3: Camera locks behind player.
-                // Smoothly interpolate to the player's current facing direction.
+                // Camera locks behind player, smoothly interpolating to player's facing.
                 var targetYaw = target.eulerAngles.y;
-                _currentLockedYaw = Mathf.LerpAngle(_currentLockedYaw, targetYaw, 1f - Mathf.Exp(-lockedYawSmoothing * Time.deltaTime));
-                effectiveYaw = _currentLockedYaw;
+                _lockedYaw = Mathf.LerpAngle(_lockedYaw, targetYaw, 1f - Mathf.Exp(-lockedYawSmoothing * Time.deltaTime));
+                effectiveYaw = _lockedYaw;
             }
             else
             {
-                // Free camera mode (default).
-                effectiveYaw = yawDegrees;
+                // Milestone 7.4: Free camera mode - use mouse-controlled yaw.
+                // No smoothing needed since it's directly controlled by mouse delta.
+                effectiveYaw = _freeYaw;
             }
 
             var yaw = Quaternion.Euler(0f, effectiveYaw, 0f);
@@ -81,7 +119,7 @@ namespace Frontline.Tactical
 
         private void OnGUI()
         {
-            // Milestone 7.3: Show camera lock status.
+            // Show camera lock status.
             if (!cameraLocked)
                 return;
 

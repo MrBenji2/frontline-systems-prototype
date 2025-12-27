@@ -463,31 +463,46 @@ namespace Frontline.Buildables
             if (!TryGetMouseWorld(out var p, out var supportTopY, out _previewSupported))
                 return;
 
-            var snap = Mathf.Max(0.25f, gridSizeMeters);
-            p.x = Mathf.Round(p.x / snap) * snap;
-            p.z = Mathf.Round(p.z / snap) * snap;
-
             GetShape(_selectedItemId, out var scale, out _);
             var halfY = scale.y * 0.5f;
 
-            // Re-sample support at snapped XZ to prevent "floaty" snap.
-            if (TryGetSupportTopYAt(p.x, p.z, out var snappedSupportTopY))
+            // Milestone 7.4: Fortnite-style snapping.
+            // First, try to snap to nearby buildable edges/attachment points.
+            var baseRot = Quaternion.Euler(0f, 90f * _rotationSteps, 0f);
+            var snappedToNeighbor = TrySnapToNearbyBuildable(p, _selectedItemId, baseRot, out var snappedPos, out var snappedRot);
+
+            if (snappedToNeighbor)
             {
-                supportTopY = snappedSupportTopY;
+                p = snappedPos;
+                _previewRot = snappedRot;
                 _previewSupported = true;
             }
             else
             {
-                _previewSupported = false;
+                // Fall back to grid snap.
+                var snap = Mathf.Max(0.5f, gridSizeMeters);
+                p.x = Mathf.Round(p.x / snap) * snap;
+                p.z = Mathf.Round(p.z / snap) * snap;
+
+                // Re-sample support at snapped XZ to prevent "floaty" snap.
+                if (TryGetSupportTopYAt(p.x, p.z, out var snappedSupportTopY))
+                {
+                    supportTopY = snappedSupportTopY;
+                    _previewSupported = true;
+                }
+                else
+                {
+                    _previewSupported = false;
+                }
+
+                // Place bottom of buildable on top of support surface, plus optional height levels.
+                var bottomY = supportTopY + (_heightLevel * WorldConstants.WORLD_LEVEL_HEIGHT);
+                p.y = bottomY + halfY;
+
+                _previewRot = baseRot;
             }
 
-            // Place bottom of buildable on top of support surface, plus optional height levels.
-            var bottomY = supportTopY + (_heightLevel * WorldConstants.WORLD_LEVEL_HEIGHT);
-            p.y = bottomY + halfY;
-
             _previewPos = p;
-            _previewRot = Quaternion.Euler(0f, 90f * _rotationSteps, 0f);
-
             _preview.transform.SetPositionAndRotation(_previewPos, _previewRot);
 
             _previewValid = _previewSupported && IsPlacementValid(_selectedItemId, _previewPos, _previewRot);
@@ -501,6 +516,171 @@ namespace Frontline.Buildables
                 blended.a = c.a;
                 _previewMaterial.color = blended;
             }
+        }
+
+        /// <summary>
+        /// Milestone 7.4: Fortnite-style snap to nearby buildable attachment points.
+        /// Returns true if a valid snap target was found.
+        /// </summary>
+        private bool TrySnapToNearbyBuildable(Vector3 cursorWorld, string itemId, Quaternion baseRot, out Vector3 snapPos, out Quaternion snapRot)
+        {
+            snapPos = cursorWorld;
+            snapRot = baseRot;
+
+            // Search radius for nearby buildables.
+            const float searchRadius = 4f;
+            const float snapDistance = 1.5f; // Max distance from cursor to snap point
+
+            GetShape(itemId, out var myScale, out _);
+            var myHalfX = myScale.x * 0.5f;
+            var myHalfY = myScale.y * 0.5f;
+            var myHalfZ = myScale.z * 0.5f;
+
+            var buildables = FindObjectsOfType<Buildable>();
+            Buildable bestTarget = null;
+            Vector3 bestSnapPoint = cursorWorld;
+            Quaternion bestSnapRot = baseRot;
+            float bestDist = float.MaxValue;
+
+            foreach (var b in buildables)
+            {
+                if (b == null || string.IsNullOrWhiteSpace(b.ItemId))
+                    continue;
+
+                var bPos = b.transform.position;
+                var dist2D = new Vector2(bPos.x - cursorWorld.x, bPos.z - cursorWorld.z).magnitude;
+                if (dist2D > searchRadius)
+                    continue;
+
+                // Get attachment points for this buildable.
+                var attachPoints = GetAttachmentPoints(b, itemId, myScale);
+                foreach (var ap in attachPoints)
+                {
+                    var d = Vector3.Distance(cursorWorld, ap.position);
+                    if (d < bestDist && d < snapDistance)
+                    {
+                        bestDist = d;
+                        bestTarget = b;
+                        bestSnapPoint = ap.position;
+                        bestSnapRot = ap.rotation;
+                    }
+                }
+            }
+
+            if (bestTarget != null)
+            {
+                snapPos = bestSnapPoint;
+                snapRot = bestSnapRot;
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Milestone 7.4: Get attachment points on a buildable for a given new piece type.
+        /// </summary>
+        private System.Collections.Generic.List<(Vector3 position, Quaternion rotation)> GetAttachmentPoints(Buildable existing, string newItemId, Vector3 newScale)
+        {
+            var points = new System.Collections.Generic.List<(Vector3, Quaternion)>();
+            var existingId = existing.ItemId;
+            var ePos = existing.transform.position;
+            var eRot = existing.transform.rotation;
+
+            GetShape(existingId, out var eScale, out _);
+            var eHalfX = eScale.x * 0.5f;
+            var eHalfY = eScale.y * 0.5f;
+            var eHalfZ = eScale.z * 0.5f;
+
+            var newHalfX = newScale.x * 0.5f;
+            var newHalfY = newScale.y * 0.5f;
+            var newHalfZ = newScale.z * 0.5f;
+
+            // Foundation-based snapping.
+            if (existingId == "build_foundation")
+            {
+                // Floor on top of floor.
+                if (newItemId == "build_foundation")
+                {
+                    // Adjacent floors (4 cardinal directions).
+                    var fwd = eRot * Vector3.forward;
+                    var right = eRot * Vector3.right;
+                    points.Add((ePos + fwd * (eHalfZ + newHalfZ), eRot));
+                    points.Add((ePos - fwd * (eHalfZ + newHalfZ), eRot));
+                    points.Add((ePos + right * (eHalfX + newHalfX), eRot));
+                    points.Add((ePos - right * (eHalfX + newHalfX), eRot));
+                    // Stacked floor.
+                    points.Add((ePos + Vector3.up * (eHalfY + newHalfY), eRot));
+                }
+                // Wall on edge of floor.
+                else if (newItemId == "build_wall" || newItemId == "build_gate")
+                {
+                    var fwd = eRot * Vector3.forward;
+                    var right = eRot * Vector3.right;
+                    // Wall snaps to edges, standing upright.
+                    var wallY = ePos.y + eHalfY + newHalfY;
+                    // Front edge.
+                    points.Add((new Vector3(ePos.x + fwd.x * eHalfZ, wallY, ePos.z + fwd.z * eHalfZ), eRot));
+                    // Back edge.
+                    points.Add((new Vector3(ePos.x - fwd.x * eHalfZ, wallY, ePos.z - fwd.z * eHalfZ), eRot));
+                    // Right edge (rotated 90°).
+                    points.Add((new Vector3(ePos.x + right.x * eHalfX, wallY, ePos.z + right.z * eHalfX), eRot * Quaternion.Euler(0, 90, 0)));
+                    // Left edge (rotated 90°).
+                    points.Add((new Vector3(ePos.x - right.x * eHalfX, wallY, ePos.z - right.z * eHalfX), eRot * Quaternion.Euler(0, 90, 0)));
+                }
+                // Ramp on edge of floor.
+                else if (newItemId == "build_ramp")
+                {
+                    var fwd = eRot * Vector3.forward;
+                    var right = eRot * Vector3.right;
+                    var rampY = ePos.y + eHalfY;
+                    // Front edge (ramp going up away from floor).
+                    points.Add((new Vector3(ePos.x + fwd.x * (eHalfZ + newHalfZ), rampY, ePos.z + fwd.z * (eHalfZ + newHalfZ)), eRot));
+                    // Back edge (ramp going up toward floor).
+                    points.Add((new Vector3(ePos.x - fwd.x * (eHalfZ + newHalfZ), rampY, ePos.z - fwd.z * (eHalfZ + newHalfZ)), eRot * Quaternion.Euler(0, 180, 0)));
+                    // Side edges.
+                    points.Add((new Vector3(ePos.x + right.x * (eHalfX + newHalfX), rampY, ePos.z + right.z * (eHalfX + newHalfX)), eRot * Quaternion.Euler(0, 90, 0)));
+                    points.Add((new Vector3(ePos.x - right.x * (eHalfX + newHalfX), rampY, ePos.z - right.z * (eHalfX + newHalfX)), eRot * Quaternion.Euler(0, -90, 0)));
+                }
+            }
+            // Wall-based snapping.
+            else if (existingId == "build_wall" || existingId == "build_gate")
+            {
+                // Wall next to wall.
+                if (newItemId == "build_wall" || newItemId == "build_gate")
+                {
+                    var right = eRot * Vector3.right;
+                    // Adjacent walls (side by side).
+                    points.Add((ePos + right * (eHalfX + newHalfX), eRot));
+                    points.Add((ePos - right * (eHalfX + newHalfX), eRot));
+                    // Wall on top.
+                    points.Add((ePos + Vector3.up * (eHalfY + newHalfY), eRot));
+                }
+                // Floor in front/back of wall.
+                else if (newItemId == "build_foundation")
+                {
+                    var fwd = eRot * Vector3.forward;
+                    var floorY = ePos.y - eHalfY + newHalfY;
+                    points.Add((new Vector3(ePos.x + fwd.x * (eHalfZ + newHalfZ), floorY, ePos.z + fwd.z * (eHalfZ + newHalfZ)), eRot));
+                    points.Add((new Vector3(ePos.x - fwd.x * (eHalfZ + newHalfZ), floorY, ePos.z - fwd.z * (eHalfZ + newHalfZ)), eRot));
+                }
+            }
+            // Ramp-based snapping.
+            else if (existingId == "build_ramp")
+            {
+                // Floor at bottom/top of ramp.
+                if (newItemId == "build_foundation")
+                {
+                    var fwd = eRot * Vector3.forward;
+                    // Floor at bottom of ramp.
+                    points.Add((ePos - fwd * (eHalfZ + newHalfZ), eRot));
+                    // Floor at top of ramp.
+                    var topY = ePos.y + WorldConstants.WORLD_LEVEL_HEIGHT;
+                    points.Add((new Vector3(ePos.x + fwd.x * (eHalfZ + newHalfZ), topY + newHalfY, ePos.z + fwd.z * (eHalfZ + newHalfZ)), eRot));
+                }
+            }
+
+            return points;
         }
 
         private void ConfirmPlacement()

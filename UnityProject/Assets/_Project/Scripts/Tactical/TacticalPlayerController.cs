@@ -61,7 +61,7 @@ namespace Frontline.Tactical
             var inputH = Input.GetAxisRaw("Horizontal");
             var inputV = Input.GetAxisRaw("Vertical");
 
-            // Milestone 7.3: Camera lock mode changes movement behavior.
+            // Camera lock mode changes movement behavior.
             var isCameraLocked = _cameraController != null && _cameraController.IsCameraLocked;
 
             Vector3 moveDir;
@@ -74,15 +74,31 @@ namespace Frontline.Tactical
                 moveDir = (forward * inputV + right * inputH).normalized;
                 moveDir = Vector3.ClampMagnitude(moveDir, 1f);
 
-                // Turn the player to face mouse cursor.
+                // Turn the player to face mouse cursor (only in locked mode).
                 FaceMouseCursor();
             }
             else
             {
-                // Default mode: world-space movement.
-                var input = new Vector3(inputH, 0, inputV);
-                input = Vector3.ClampMagnitude(input, 1f);
-                moveDir = input;
+                // Milestone 7.4: Free camera mode - movement is camera-relative.
+                // Player moves relative to where the camera is looking.
+                var cam = Camera.main;
+                if (cam != null && (Mathf.Abs(inputH) > 0.01f || Mathf.Abs(inputV) > 0.01f))
+                {
+                    // Get camera forward/right on XZ plane.
+                    var camForward = cam.transform.forward;
+                    camForward.y = 0f;
+                    camForward.Normalize();
+                    var camRight = cam.transform.right;
+                    camRight.y = 0f;
+                    camRight.Normalize();
+
+                    moveDir = (camForward * inputV + camRight * inputH).normalized;
+                    moveDir = Vector3.ClampMagnitude(moveDir, 1f);
+                }
+                else
+                {
+                    moveDir = Vector3.zero;
+                }
             }
 
             // Milestone 7.2: Apply weight-based speed multiplier.

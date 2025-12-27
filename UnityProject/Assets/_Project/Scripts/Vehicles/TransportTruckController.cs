@@ -220,19 +220,22 @@ namespace Frontline.Vehicles
                     Exit();
             }
 
-            // Milestone 7.3: E = Use/Open/Interact (inventory) - near truck or while inside.
+            // Milestone 7.4: E = Use/Open/Interact (inventory) - near truck or while inside.
+            // Only OPEN the panel from here. The panel handles its own closing via E key.
+            // This prevents race condition where panel closes then controller reopens it.
             if (Input.GetKeyDown(KeyCode.E))
             {
+                // Don't process E if a modal is open (panel handles its own close).
+                if (UiModalManager.Instance != null && UiModalManager.Instance.HasOpenModal)
+                    return;
+
                 var canInteract =
                     (IsOccupied) ||
                     (player != null && IsPlayerInRange(player.transform, enterExitDistance * 1.5f));
 
-                if (canInteract && TransportTruckPanel.Instance != null)
+                if (canInteract && TransportTruckPanel.Instance != null && !TransportTruckPanel.Instance.IsOpen)
                 {
-                    if (TransportTruckPanel.Instance.IsOpen)
-                        TransportTruckPanel.Instance.Close();
-                    else
-                        TransportTruckPanel.Instance.Open(this);
+                    TransportTruckPanel.Instance.Open(this);
                 }
             }
         }

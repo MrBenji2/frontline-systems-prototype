@@ -404,3 +404,85 @@ Trucks now deal and receive collision damage:
 | H | Truck inventory shows cargo and respects weight limits | PASS |
 | I | Truck collision damages both truck and hit target | PASS |
 | J | Truck can drive up ramps and onto floors without damaging them at low speed | PASS |
+
+## Milestone 7.4: Camera Unlock Spin Fix + Fortnite-Style Build Snapping + Melee Regression Check + Truck UI Close
+
+### Camera Unlock Spinning Bug (CRITICAL FIX)
+
+**Problem**: When camera was unlocked (C key), the camera would spin endlessly as the mouse moved, making gameplay unplayable.
+
+**Root Cause**: The unlocked camera mode was using a fixed `yawDegrees` value (0°) instead of responding to mouse input. When transitioning from locked to unlocked, there was no proper mouse-driven rotation.
+
+**Fix**:
+- Added mouse-based camera rotation for free (unlocked) mode using `Input.GetAxis("Mouse X")`
+- Separate yaw tracking: `_lockedYaw` (follows player) and `_freeYaw` (mouse-controlled)
+- When unlocking, `_freeYaw` is initialized to current locked yaw to prevent jarring transitions
+- Camera stops immediately when mouse stops moving
+- No drift or runaway spinning
+
+**Behavior**:
+- **Locked mode (C)**: Camera follows behind player, A/D strafes, player faces cursor
+- **Free mode (default)**: Camera rotates with mouse, WASD moves relative to camera direction
+
+### Fortnite-Style Build Snapping
+
+**Problem**: Buildable placement was awkward with weird ramp snapping and micro-gap placement failures.
+
+**Fix**: Implemented attachment-point based snapping system:
+- **Snap-to-neighbor**: Pieces snap to edges of existing buildables
+  - Walls snap to floor edges
+  - Ramps snap to floor edges
+  - Gates align with walls
+  - Floors stack on floors
+- **Grid fallback**: If no nearby buildables, snap to 0.5m grid
+- **Search radius**: 4m for nearby buildables, 1.5m snap distance
+
+**Attachment Points**:
+- Foundation → Foundation (adjacent in 4 directions, stacked on top)
+- Foundation → Wall/Gate (4 edge positions with correct rotation)
+- Foundation → Ramp (4 edge positions)
+- Wall → Wall (side-by-side, stacked)
+- Wall → Foundation (front/back)
+- Ramp → Foundation (bottom/top of ramp)
+
+### Melee Regression Fix
+
+**Problem**: Melee weapons were potentially hitting targets outside intended arc.
+
+**Fix**: Added 120° cone filter to RMB melee attack (matching LMB weapon melee):
+- Melee only hits targets in front of player
+- Uses mouse cursor for aim direction
+- Cannot hit targets behind player
+- Cannot hit at range (OverlapSphere with range limit)
+
+### Truck Inventory Window Close with E
+
+**Problem**: E key opened truck inventory but didn't close it consistently.
+
+**Fix**: Fixed race condition where:
+1. TransportTruckPanel.Update() would close the panel on E
+2. TransportTruckController.Update() would immediately reopen it
+
+**Solution**: Controller now only OPENS the panel; panel handles its own closing. Controller checks `HasOpenModal` before processing E key.
+
+### Files Changed
+
+1. `TopDownCameraController.cs` - Mouse-driven free camera, separate yaw tracking
+2. `TacticalPlayerController.cs` - Camera-relative movement in free mode
+3. `BuildablesService.cs` - Fortnite-style attachment point snapping
+4. `PlayerCombatController.cs` - Cone filter for RMB melee
+5. `TransportTruckController.cs` - Fixed E key race condition
+
+### Acceptance Tests
+
+| Test | Description | Status |
+|------|-------------|--------|
+| A | Unlock camera, move mouse, stop → camera stops immediately | PASS |
+| B | Unlock camera, rotate around player → no runaway spinning | PASS |
+| C | Place floor → place wall on edge → snaps cleanly | PASS |
+| D | Place floor → place ramp on edge → snaps cleanly | PASS |
+| E | Place gate aligned with wall → snaps cleanly | PASS |
+| F | Rotating pieces snap to 90° increments | PASS |
+| G | Melee cannot hit targets outside intended range | PASS |
+| H | Melee cannot hit targets behind player | PASS |
+| I | Press E to open truck inventory → Press E again → closes | PASS |
