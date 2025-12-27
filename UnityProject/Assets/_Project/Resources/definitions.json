@@ -139,6 +139,22 @@
   "certifications": {
     "ladders": [
       {
+        "ladderId": "recruit",
+        "displayName": "Recruit",
+        "category": "Basic",
+        "tiers": [
+          {
+            "tier": 1,
+            "certId": "recruit_basic",
+            "displayName": "Recruit",
+            "permissions": ["log.carry", "inf.unarmed"],
+            "requirements": { "type": "auto_grant" },
+            "version": 1,
+            "expires": { "mode": "never", "days": null }
+          }
+        ]
+      },
+      {
         "ladderId": "infantry",
         "displayName": "Infantry",
         "category": "Infantry",
@@ -148,7 +164,7 @@
             "certId": "infantry_1_rifleman",
             "displayName": "Rifleman",
             "permissions": ["inf.basic"],
-            "requirements": { "type": "milestone_stub" },
+            "requirements": { "type": "training_mission", "missionId": "training_basic_rifle" },
             "version": 1,
             "expires": { "mode": "versioned", "days": null }
           },
@@ -314,12 +330,29 @@
   },
   "ranks": {
     "factionRanks": [
-      { "rankId": "r0", "displayName": "Recruit", "minTrust": 0 },
-      { "rankId": "r1", "displayName": "Private", "minTrust": 10 },
-      { "rankId": "r2", "displayName": "Corporal", "minTrust": 25 },
-      { "rankId": "r3", "displayName": "Sergeant", "minTrust": 45 },
-      { "rankId": "r4", "displayName": "Lieutenant", "minTrust": 70 },
-      { "rankId": "r5", "displayName": "Captain", "minTrust": 100 }
+      { "rankId": "e0", "displayName": "Recruit", "minTrust": 0, "track": "enlisted" },
+      { "rankId": "e1", "displayName": "Private", "minTrust": 10, "track": "enlisted" },
+      { "rankId": "e2", "displayName": "Private First Class", "minTrust": 18, "track": "enlisted" },
+      { "rankId": "e3", "displayName": "Lance Corporal", "minTrust": 28, "track": "enlisted" },
+      { "rankId": "e4", "displayName": "Corporal", "minTrust": 40, "track": "enlisted" },
+      { "rankId": "e5", "displayName": "Sergeant", "minTrust": 55, "track": "enlisted" },
+      { "rankId": "e6", "displayName": "Staff Sergeant", "minTrust": 75, "track": "enlisted" },
+      { "rankId": "e7", "displayName": "Sergeant First Class", "minTrust": 100, "track": "enlisted" },
+      { "rankId": "e8", "displayName": "Master Sergeant", "minTrust": 130, "track": "enlisted" },
+      { "rankId": "e9", "displayName": "First Sergeant", "minTrust": 165, "track": "enlisted" },
+      { "rankId": "e10", "displayName": "Sergeant Major", "minTrust": 200, "track": "enlisted" },
+      { "rankId": "e11", "displayName": "Command Sergeant Major", "minTrust": 250, "track": "enlisted" },
+      { "rankId": "o1", "displayName": "Second Lieutenant", "minTrust": 300, "track": "officer" },
+      { "rankId": "o2", "displayName": "First Lieutenant", "minTrust": 400, "track": "officer" },
+      { "rankId": "o3", "displayName": "Captain", "minTrust": 500, "track": "officer" },
+      { "rankId": "o4", "displayName": "Major", "minTrust": 650, "track": "officer" },
+      { "rankId": "o5", "displayName": "Lieutenant Colonel", "minTrust": 800, "track": "officer" },
+      { "rankId": "o6", "displayName": "Colonel", "minTrust": 1000, "track": "officer" },
+      { "rankId": "o7", "displayName": "Brigadier General", "minTrust": 1500, "track": "officer" },
+      { "rankId": "o8", "displayName": "Major General", "minTrust": 2000, "track": "officer" },
+      { "rankId": "o9", "displayName": "Lieutenant General", "minTrust": 3000, "track": "officer" },
+      { "rankId": "o10", "displayName": "General", "minTrust": 5000, "track": "officer" },
+      { "rankId": "o11", "displayName": "Field Marshal", "minTrust": 10000, "track": "officer" }
     ]
   }
 }

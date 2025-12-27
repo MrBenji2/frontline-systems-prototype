@@ -9,7 +9,7 @@ namespace Frontline.Trust
         public string playerId = "local";
         public FactionId faction = FactionId.Neutral;
         public int trustScore;
-        public string rankId = "r0";
+        public string rankId = "e0";
 
         // Runtime convenience index (not persisted directly by JsonUtility).
         [NonSerialized] public Dictionary<string, PlayerCertificationState> certsById = new(StringComparer.Ordinal);
