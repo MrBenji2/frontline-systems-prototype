@@ -53,8 +53,20 @@ namespace Frontline.Buildables
 
         public IReadOnlyDictionary<string, int> Items => _items;
 
+        /// <summary>
+        /// Milestone 7.5: Slots used = distinct item types in inventory.
+        /// </summary>
         public int SlotsUsed => _items.Count;
-        public int TotalCount => _items.Values.Sum();
+
+        /// <summary>
+        /// Milestone 7.5: Distinct item count (same as SlotsUsed).
+        /// </summary>
+        public int DistinctItemCount => _items.Count;
+
+        /// <summary>
+        /// Total quantity of all items (for display purposes).
+        /// </summary>
+        public int TotalQuantity => _items.Values.Sum();
 
         /// <summary>
         /// Milestone 7.3: Calculates current total weight of items.
@@ -84,16 +96,18 @@ namespace Frontline.Buildables
                 return false;
             if (count <= 0)
                 return false;
-            if (TotalCount + count > maxTotalCount)
-                return false;
 
-            // Milestone 7.3: Check weight limit.
+            // Milestone 7.5: Check weight limit (primary constraint for resources).
             var itemWeight = GetItemWeight(itemId) * count;
             if (CurrentWeight + itemWeight > MaxWeight)
                 return false;
 
+            // Milestone 7.5: Check slots (distinct item types).
+            // If item already exists, no new slot needed.
             if (_items.ContainsKey(itemId))
                 return true;
+
+            // New item type requires a free slot.
             return SlotsUsed + 1 <= maxSlots;
         }
 

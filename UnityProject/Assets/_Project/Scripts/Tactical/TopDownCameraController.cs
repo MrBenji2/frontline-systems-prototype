@@ -2,6 +2,11 @@ using UnityEngine;
 
 namespace Frontline.Tactical
 {
+    /// <summary>
+    /// Milestone 7.5: Foxhole-style camera with clean lock/unlock behavior.
+    /// - Free mode: mouse orbits camera around player, camera-relative movement.
+    /// - Locked mode: camera instantly snaps behind player and follows player rotation cleanly.
+    /// </summary>
     public sealed class TopDownCameraController : MonoBehaviour
     {
         [SerializeField] private Transform target;
@@ -12,18 +17,19 @@ namespace Frontline.Tactical
         [SerializeField] private float pitchDegrees = 55f;
 
         [Header("Camera Lock (C key)")]
-        [Tooltip("When enabled, camera locks behind the player. A/D strafes instead of rotating.")]
+        [Tooltip("When enabled, camera locks behind the player and follows player rotation.")]
         [SerializeField] private bool cameraLocked = false;
         [SerializeField] private KeyCode toggleLockKey = KeyCode.C;
-        [SerializeField] private float lockedYawSmoothing = 8f;
 
-        [Header("Milestone 7.4: Free Camera (Unlocked)")]
-        [Tooltip("Mouse sensitivity for free camera rotation.")]
+        [Header("Milestone 7.5: Free Camera")]
+        [Tooltip("Mouse sensitivity for free camera orbit.")]
         [SerializeField] private float mouseSensitivity = 2.0f;
 
-        // Milestone 7.4: Separate yaw tracking for locked and free modes.
-        private float _lockedYaw;   // Used when camera is locked (follows player facing)
-        private float _freeYaw;     // Used when camera is unlocked (mouse-controlled)
+        // Current camera yaw (single source of truth).
+        private float _cameraYaw;
+
+        // Track the last frame's yaw to detect sudden jumps.
+        private bool _initialized;
 
         public Transform Target
         {
@@ -32,7 +38,7 @@ namespace Frontline.Tactical
         }
 
         /// <summary>
-        /// Milestone 7.3: Whether the camera is locked behind the player.
+        /// Whether the camera is locked behind the player.
         /// </summary>
         public bool IsCameraLocked
         {
@@ -41,15 +47,15 @@ namespace Frontline.Tactical
         }
 
         /// <summary>
-        /// Milestone 7.4: Current free camera yaw (for external queries).
+        /// Current camera yaw for external queries.
         /// </summary>
-        public float FreeYaw => _freeYaw;
+        public float CameraYaw => _cameraYaw;
 
         private void Start()
         {
-            // Initialize free yaw to 0 (looking forward on world Z axis).
-            _freeYaw = 0f;
-            _lockedYaw = target != null ? target.eulerAngles.y : 0f;
+            // Initialize camera yaw to player facing or 0.
+            _cameraYaw = target != null ? target.eulerAngles.y : 0f;
+            _initialized = true;
         }
 
         private void Update()
@@ -61,30 +67,36 @@ namespace Frontline.Tactical
 
                 if (cameraLocked && target != null)
                 {
-                    // Switching to locked mode: snap locked yaw to player facing.
-                    _lockedYaw = target.eulerAngles.y;
+                    // Milestone 7.5: Switching to locked mode - instantly snap to player facing.
+                    // No smoothing, no drift - just snap.
+                    _cameraYaw = target.eulerAngles.y;
                 }
-                else
-                {
-                    // Milestone 7.4: Switching to free mode: preserve current camera angle.
-                    // This prevents jarring rotation when unlocking.
-                    _freeYaw = _lockedYaw;
-                }
+                // When unlocking: preserve current camera yaw exactly (no spin).
+                // _cameraYaw stays unchanged, so camera doesn't move.
             }
 
-            // Milestone 7.4: Handle mouse input for free camera mode.
-            if (!cameraLocked)
+            // Handle camera yaw updates based on mode.
+            if (cameraLocked)
             {
-                // Only rotate camera when right mouse button is held OR always (choose one).
-                // For Foxhole-like gameplay, we'll use direct mouse delta without button requirement.
+                // Milestone 7.5: In locked mode, camera yaw is driven directly by player yaw.
+                // No smoothing to prevent twitch - just use player yaw directly.
+                if (target != null)
+                {
+                    _cameraYaw = target.eulerAngles.y;
+                }
+            }
+            else
+            {
+                // Free camera mode: mouse controls orbit.
                 var mouseX = Input.GetAxis("Mouse X");
                 if (Mathf.Abs(mouseX) > 0.001f)
                 {
-                    _freeYaw += mouseX * mouseSensitivity;
-                    // Normalize to 0-360 range to prevent floating-point issues.
-                    _freeYaw = Mathf.Repeat(_freeYaw, 360f);
+                    _cameraYaw += mouseX * mouseSensitivity;
                 }
             }
+
+            // Normalize yaw to prevent floating-point drift over time.
+            _cameraYaw = NormalizeAngle(_cameraYaw);
         }
 
         private void LateUpdate()
@@ -92,29 +104,27 @@ namespace Frontline.Tactical
             if (target == null)
                 return;
 
-            float effectiveYaw;
-
-            if (cameraLocked)
-            {
-                // Camera locks behind player, smoothly interpolating to player's facing.
-                var targetYaw = target.eulerAngles.y;
-                _lockedYaw = Mathf.LerpAngle(_lockedYaw, targetYaw, 1f - Mathf.Exp(-lockedYawSmoothing * Time.deltaTime));
-                effectiveYaw = _lockedYaw;
-            }
-            else
-            {
-                // Milestone 7.4: Free camera mode - use mouse-controlled yaw.
-                // No smoothing needed since it's directly controlled by mouse delta.
-                effectiveYaw = _freeYaw;
-            }
-
-            var yaw = Quaternion.Euler(0f, effectiveYaw, 0f);
+            // Calculate camera position and rotation from current yaw.
+            var yaw = Quaternion.Euler(0f, _cameraYaw, 0f);
             var rotatedOffset = yaw * offset;
 
             var desiredPos = target.position + rotatedOffset;
+
+            // Smooth position follow to reduce jitter from player movement.
             transform.position = Vector3.Lerp(transform.position, desiredPos, 1f - Mathf.Exp(-followSharpness * Time.deltaTime));
 
-            transform.rotation = Quaternion.Euler(pitchDegrees, effectiveYaw, 0f);
+            // Set rotation directly (no smoothing needed since yaw is already stable).
+            transform.rotation = Quaternion.Euler(pitchDegrees, _cameraYaw, 0f);
+        }
+
+        /// <summary>
+        /// Normalize angle to -180 to 180 range to prevent wrap-around issues.
+        /// </summary>
+        private static float NormalizeAngle(float angle)
+        {
+            while (angle > 180f) angle -= 360f;
+            while (angle < -180f) angle += 360f;
+            return angle;
         }
 
         private void OnGUI()

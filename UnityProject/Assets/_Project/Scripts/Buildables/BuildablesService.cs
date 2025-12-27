@@ -976,22 +976,51 @@ namespace Frontline.Buildables
             if (UiModalManager.Instance != null && UiModalManager.Instance.HasOpenModal)
                 return;
 
-            if (_player == null || Camera.main == null)
+            if (_player == null)
                 return;
 
-            var ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-            if (!Physics.Raycast(ray, out var hit, placementRayDistance, ~0, QueryTriggerInteraction.Collide))
-                return;
+            // Milestone 7.5: Two methods to find crate:
+            // 1. Raycast from cursor (looking at crate)
+            // 2. Proximity search (nearest crate within range)
+            const float interactRange = 2.5f;
 
-            var crate = hit.collider != null ? hit.collider.GetComponentInParent<StorageCrate>() : null;
-            if (crate == null)
-                return;
+            StorageCrate targetCrate = null;
 
-            var p = _player.position;
-            p.y = 0f;
-            var h = crate.transform.position;
-            h.y = 0f;
-            if (Vector3.Distance(p, h) > 1.5f)
+            // Method 1: Cursor raycast.
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                var ray = cam.ScreenPointToRay(Input.mousePosition);
+                if (Physics.Raycast(ray, out var hit, placementRayDistance, ~0, QueryTriggerInteraction.Collide))
+                {
+                    var hitCrate = hit.collider != null ? hit.collider.GetComponentInParent<StorageCrate>() : null;
+                    if (hitCrate != null)
+                    {
+                        var dist = Vector3.Distance(_player.position, hitCrate.transform.position);
+                        if (dist <= interactRange)
+                            targetCrate = hitCrate;
+                    }
+                }
+            }
+
+            // Method 2: Proximity search if no cursor hit.
+            if (targetCrate == null)
+            {
+                var crates = FindObjectsOfType<StorageCrate>();
+                float bestDist = float.MaxValue;
+                foreach (var c in crates)
+                {
+                    if (c == null) continue;
+                    var dist = Vector3.Distance(_player.position, c.transform.position);
+                    if (dist <= interactRange && dist < bestDist)
+                    {
+                        bestDist = dist;
+                        targetCrate = c;
+                    }
+                }
+            }
+
+            if (targetCrate == null)
                 return;
 
             if (StorageCratePanel.Instance == null)
@@ -1003,14 +1032,14 @@ namespace Frontline.Buildables
                     modalId: "storage_crate",
                     tryOpen: () =>
                     {
-                        StorageCratePanel.Instance.Open(crate);
+                        StorageCratePanel.Instance.Open(targetCrate);
                         return StorageCratePanel.Instance.IsOpen;
                     },
                     closeAction: StorageCratePanel.Instance.Close);
                 return;
             }
 
-            StorageCratePanel.Instance.Open(crate);
+            StorageCratePanel.Instance.Open(targetCrate);
         }
 
         private void HandleRepair()

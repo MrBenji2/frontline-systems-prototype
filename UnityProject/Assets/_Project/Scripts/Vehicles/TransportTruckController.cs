@@ -120,10 +120,24 @@ namespace Frontline.Vehicles
         public int CurrentHp => _health != null ? _health.CurrentHp : maxHp;
 
         public int MaxSlots => maxSlots;
-        public int MaxTotalCount => maxTotalCount;
+        /// <summary>
+        /// Milestone 7.5: MaxTotalCount now represents max distinct item types, not quantity sum.
+        /// </summary>
+        public int MaxTotalCount => maxSlots; // Same as max slots for clarity
         public IReadOnlyDictionary<string, int> Items => _items;
+        /// <summary>
+        /// Milestone 7.5: Slots used = distinct item types in inventory.
+        /// </summary>
         public int SlotsUsed => _items.Count;
-        public int TotalCount => _items.Values.Sum();
+        /// <summary>
+        /// Milestone 7.5: Count = distinct item types (same as SlotsUsed).
+        /// NOT the sum of all quantities - that's what weight represents.
+        /// </summary>
+        public int DistinctItemCount => _items.Count;
+        /// <summary>
+        /// Total quantity of all items (for display purposes).
+        /// </summary>
+        public int TotalQuantity => _items.Values.Sum();
 
         /// <summary>
         /// Milestone 7.2: Maximum cargo weight capacity.
@@ -491,16 +505,18 @@ namespace Frontline.Vehicles
                 return false;
             if (count <= 0)
                 return false;
-            if (TotalCount + count > maxTotalCount)
-                return false;
 
-            // Milestone 7.2: Check weight limit.
+            // Milestone 7.5: Check weight limit (primary constraint for resources).
             var itemWeight = GetItemWeight(itemId) * count;
             if (CurrentCargoWeight + itemWeight > maxCargoWeight)
                 return false;
 
+            // Milestone 7.5: Check slots (distinct item types).
+            // If item already exists, no new slot needed.
             if (_items.ContainsKey(itemId))
                 return true;
+
+            // New item type requires a free slot.
             return SlotsUsed + 1 <= maxSlots;
         }
 
