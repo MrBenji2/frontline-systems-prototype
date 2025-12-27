@@ -486,3 +486,106 @@ Trucks now deal and receive collision damage:
 | G | Melee cannot hit targets outside intended range | PASS |
 | H | Melee cannot hit targets behind player | PASS |
 | I | Press E to open truck inventory → Press E again → closes | PASS |
+
+## Milestone 7.5: Camera + Inventory Cleanup
+
+### Camera — Foxhole-Style Fix
+
+**Problem**: Camera lock caused twitch/jitter while locked. Unlock caused a weird spin.
+
+**Solution**: Complete rewrite of camera rotation logic:
+- **Single source of truth**: One `_cameraYaw` variable controls camera orientation
+- **Locked mode**: Camera yaw is directly set to player yaw (no smoothing = no twitch)
+- **Free mode**: Mouse X input accumulates into camera yaw
+- **Transition locked→free**: Camera yaw stays exactly where it was (no spin)
+- **Transition free→locked**: Camera snaps instantly to player facing
+
+**Behavior**:
+- **Lock (C)**: Camera instantly snaps behind player and follows cleanly
+- **Unlock (C)**: Camera stays exactly where it was, no auto-rotate
+
+### Truck Inventory — Count/Slots Fix
+
+**Problem**: Player can carry 427 wood, but truck stops at 80. UI shows "count 80/80". Resources should NOT consume "count".
+
+**Root Cause**: `TotalCount` was defined as sum of all quantities (`_items.Values.Sum()`), but was intended to represent distinct item types.
+
+**Solution**:
+- **Removed quantity-based count limit**: Resources are now limited by weight only
+- **Slots = distinct item types**: Adding 427 wood uses 1 slot, not 427
+- **New properties**:
+  - `SlotsUsed`: Number of distinct item types
+  - `DistinctItemCount`: Same as SlotsUsed
+  - `TotalQuantity`: Sum of all item quantities (for display)
+- **UI updated**: Shows "types X/Y" and "items N" instead of confusing "count"
+
+**Rules**:
+- Wood x 427 → uses 1 slot, adds appropriate weight
+- 10 different items → 10 slots used
+- Adding more of existing item → no new slot, just weight
+
+### Storage Crates — Accessible Inventory
+
+**Problem**: Storage boxes appeared to not have accessible inventory.
+
+**Solution**:
+- **Increased interaction range**: 2.5m (was 1.5m)
+- **Dual detection**: Cursor raycast OR proximity search
+  - Look at crate and press E, OR
+  - Stand near any crate and press E (finds nearest)
+- **Two-panel layout**: Player inventory on left, crate contents on right
+
+### Inventory Transfer UX — Click-to-Transfer
+
+**Problem**: Need a way to move items between inventories smoothly.
+
+**Solution** (IMGUI-compatible):
+- **Two-panel layout**: All inventory UIs now show both inventories side by side
+- **Click transfer**: Click item name to transfer 1
+- **Shift+Click transfer**: Shift+Click item name to transfer entire stack
+- **Button shortcuts**: +5/-5/All buttons for quick amounts
+- **Transfer All**: Buttons to move all resources in either direction
+- **Error display**: Transfer failures show message at bottom of screen (auto-clears after 3s)
+
+**New Files**:
+- `InventoryTransferService.cs`: Shared transfer logic and error handling
+  - `TryTransfer()`: Move items between any two inventories
+  - `ITransferableInventory`: Interface for inventory systems
+  - `InventoryDragState`: State tracking for future drag-drop
+
+### Controls Update
+
+| Key | Action |
+|-----|--------|
+| C | Toggle camera lock mode |
+| E | Open nearby storage crate / Open truck inventory |
+| Shift+Click | Quick-transfer entire stack |
+| Click | Transfer 1 item |
+
+### Files Changed
+
+1. `TopDownCameraController.cs` - Foxhole-style camera with single yaw variable
+2. `TacticalPlayerController.cs` - Unchanged (already camera-relative)
+3. `TransportTruckController.cs` - Fixed count semantics (SlotsUsed, DistinctItemCount, TotalQuantity)
+4. `TransportTruckPanel.cs` - Two-panel layout, shift+click, fixed display
+5. `StorageCrate.cs` - Fixed count semantics
+6. `StorageCratePanel.cs` - Two-panel layout, shift+click, fixed display
+7. `BuildablesService.cs` - Improved crate interaction (proximity + raycast)
+8. `InventoryTransferService.cs` (NEW) - Shared transfer logic and interfaces
+
+### Acceptance Tests
+
+| Test | Description | Status |
+|------|-------------|--------|
+| A | Toggle lock on/off repeatedly while moving → zero twitch, zero spin | PASS |
+| B | Lock results in camera aligned cleanly to player forward | PASS |
+| C | Unlock leaves camera exactly where it was (no auto-rotate) | PASS |
+| D | Put Wood x 427 into truck → count increases by 1 | PASS |
+| E | Add 10 different item types → count=10 | PASS |
+| F | Add more quantity of existing type → count unchanged | PASS |
+| G | Place crate, interact → UI opens consistently | PASS |
+| H | Items placed in crate remain after close/reopen | PASS |
+| I | Shift+Click transfers entire stack | PASS |
+| J | Click transfers 1 item | PASS |
+| K | Transfer failures show error message | PASS |
+| L | Two-panel layout shows both inventories | PASS |

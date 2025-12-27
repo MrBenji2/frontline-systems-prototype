@@ -8,10 +8,8 @@ using UnityEngine;
 namespace Frontline.Vehicles
 {
     /// <summary>
-    /// Minimal IMGUI world container UI for Transport Truck storage (Milestone 6).
-    /// Close rules:
-    /// - Esc closes via UiModalManager (openedByInteract: false).
-    /// - F toggles (closes) when opened by F.
+    /// IMGUI world container UI for Transport Truck storage.
+    /// Milestone 7.5: Two-panel layout with shift+click to transfer.
     /// </summary>
     public sealed class TransportTruckPanel : MonoBehaviour
     {
@@ -22,7 +20,8 @@ namespace Frontline.Vehicles
         [SerializeField] private bool visible;
 
         private TransportTruckController _active;
-        private Vector2 _scroll;
+        private Vector2 _scrollLeft;
+        private Vector2 _scrollRight;
 
         private static readonly string[] ResourceOrder =
         {
@@ -83,7 +82,7 @@ namespace Frontline.Vehicles
                 return;
 
             const int pad = 10;
-            var panelWidth = Mathf.Min(560, Screen.width - 20);
+            var panelWidth = Mathf.Min(720, Screen.width - 20);
             var panelHeight = Mathf.Min(520, Screen.height - 20);
             var rect = new Rect((Screen.width - panelWidth) * 0.5f, pad, panelWidth, panelHeight);
 
@@ -91,11 +90,11 @@ namespace Frontline.Vehicles
             GUILayout.Label("Truck Storage");
 
             GUILayout.Space(6);
-            // Milestone 7.3: Show weight-based capacity.
+            // Milestone 7.5: Show weight-based capacity and distinct item types.
             var weightStr = $"{_active.CurrentCargoWeight:F1}/{_active.MaxCargoWeight:F0} kg";
-            var slotsStr = $"slots {_active.SlotsUsed}/{_active.MaxSlots}";
-            var countStr = $"count {_active.TotalCount}/{_active.MaxTotalCount}";
-            GUILayout.Label($"Capacity: {weightStr} | {slotsStr} | {countStr}");
+            var slotsStr = $"types {_active.SlotsUsed}/{_active.MaxSlots}";
+            var qtyStr = $"items {_active.TotalQuantity}";
+            GUILayout.Label($"Capacity: {weightStr} | {slotsStr} | {qtyStr}");
 
             if (_active.IsOverloaded)
             {
@@ -105,57 +104,104 @@ namespace Frontline.Vehicles
                 GUI.color = prevColor;
             }
 
+            GUILayout.Space(4);
+            GUILayout.Label("Shift+Click item to quick-transfer | Click buttons to transfer amounts");
+
             GUILayout.Space(8);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Transfer All: Player → Truck", GUILayout.Width(220)))
+            if (GUILayout.Button("Transfer All →", GUILayout.Width(120)))
                 TransferAllPlayerToTruck();
-            if (GUILayout.Button("Transfer All: Truck → Player", GUILayout.Width(220)))
+            if (GUILayout.Button("← Transfer All", GUILayout.Width(120)))
                 TransferAllTruckToPlayer();
+            GUILayout.FlexibleSpace();
             if (GUILayout.Button("Close", GUILayout.Width(80)))
                 Close();
             GUILayout.EndHorizontal();
 
             GUILayout.Space(8);
-            _scroll = GUILayout.BeginScrollView(_scroll);
 
-            GUILayout.Label("Player Resources (mat_*):");
+            // Milestone 7.5: Two-panel layout (Player | Truck).
+            GUILayout.BeginHorizontal();
+
+            // Left panel: Player inventory.
+            GUILayout.BeginVertical(GUI.skin.box, GUILayout.Width(340));
+            GUILayout.Label("Player Inventory");
+            _scrollLeft = GUILayout.BeginScrollView(_scrollLeft, GUILayout.Height(340));
+
             foreach (var id in ResourceOrder)
             {
                 var amt = PlayerInventoryService.Instance.GetResource(id);
+                if (amt <= 0) continue;
+
                 GUILayout.BeginHorizontal();
-                GUILayout.Label($"{id}: {amt}", GUILayout.Width(220));
-                var prev = GUI.enabled;
-                GUI.enabled = amt > 0;
-                if (GUILayout.Button("+1", GUILayout.Width(50)))
-                    MovePlayerToTruck(id, 1);
-                if (GUILayout.Button("+5", GUILayout.Width(50)))
+                // Shift+Click to transfer all.
+                if (GUILayout.Button($"{id}: {amt}", GUILayout.Width(180)))
+                {
+                    if (Event.current.shift)
+                        MovePlayerToTruck(id, amt);
+                    else
+                        MovePlayerToTruck(id, 1);
+                }
+                if (GUILayout.Button("+5", GUILayout.Width(40)))
                     MovePlayerToTruck(id, 5);
-                if (GUILayout.Button("All", GUILayout.Width(60)))
+                if (GUILayout.Button("All", GUILayout.Width(40)))
                     MovePlayerToTruck(id, amt);
-                GUI.enabled = prev;
                 GUILayout.EndHorizontal();
             }
 
-            GUILayout.Space(10);
-            GUILayout.Label("Truck Contents:");
+            // Show empty message if no resources.
+            var playerEmpty = true;
+            foreach (var id in ResourceOrder)
+            {
+                if (PlayerInventoryService.Instance.GetResource(id) > 0)
+                {
+                    playerEmpty = false;
+                    break;
+                }
+            }
+            if (playerEmpty)
+                GUILayout.Label("(no resources)");
+
+            GUILayout.EndScrollView();
+            GUILayout.EndVertical();
+
+            GUILayout.Space(8);
+
+            // Right panel: Truck inventory.
+            GUILayout.BeginVertical(GUI.skin.box, GUILayout.Width(340));
+            GUILayout.Label("Truck Contents");
+            _scrollRight = GUILayout.BeginScrollView(_scrollRight, GUILayout.Height(340));
 
             var items = _active.Items.OrderBy(kv => kv.Key).ToList();
             if (items.Count == 0)
                 GUILayout.Label("(empty)");
+
             foreach (var kv in items)
             {
                 GUILayout.BeginHorizontal();
-                GUILayout.Label($"{kv.Key}: {kv.Value}", GUILayout.Width(220));
-                if (GUILayout.Button("-1", GUILayout.Width(50)))
-                    MoveTruckToPlayer(kv.Key, 1);
-                if (GUILayout.Button("-5", GUILayout.Width(50)))
+                // Shift+Click to transfer all.
+                if (GUILayout.Button($"{kv.Key}: {kv.Value}", GUILayout.Width(180)))
+                {
+                    if (Event.current.shift)
+                        MoveTruckToPlayer(kv.Key, kv.Value);
+                    else
+                        MoveTruckToPlayer(kv.Key, 1);
+                }
+                if (GUILayout.Button("-5", GUILayout.Width(40)))
                     MoveTruckToPlayer(kv.Key, 5);
-                if (GUILayout.Button("All", GUILayout.Width(60)))
+                if (GUILayout.Button("All", GUILayout.Width(40)))
                     MoveTruckToPlayer(kv.Key, kv.Value);
                 GUILayout.EndHorizontal();
             }
 
             GUILayout.EndScrollView();
+            GUILayout.EndVertical();
+
+            GUILayout.EndHorizontal();
+
+            // Show transfer errors.
+            InventoryTransferService.DrawErrorIfAny();
+
             GUILayout.EndArea();
         }
 

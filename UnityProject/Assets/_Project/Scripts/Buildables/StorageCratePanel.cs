@@ -8,10 +8,8 @@ using UnityEngine;
 namespace Frontline.Buildables
 {
     /// <summary>
-    /// Minimal IMGUI world container UI for StorageCrate (Milestone 5/7.3).
-    /// - Resource-only storage (mat_*) for v1.
-    /// - Transfer All both directions.
-    /// - Milestone 7.3: Added label editing, weight display, upgrade, destroy.
+    /// IMGUI world container UI for StorageCrate.
+    /// Milestone 7.5: Added click-to-transfer (Shift+Click moves entire stack).
     /// </summary>
     public sealed class StorageCratePanel : MonoBehaviour
     {
@@ -22,7 +20,8 @@ namespace Frontline.Buildables
         [SerializeField] private bool visible;
 
         private StorageCrate _active;
-        private Vector2 _scroll;
+        private Vector2 _scrollLeft;
+        private Vector2 _scrollRight;
 
         // Milestone 7.3: Label editing state.
         private bool _editingLabel;
@@ -98,7 +97,7 @@ namespace Frontline.Buildables
                 return;
 
             const int pad = 10;
-            var panelWidth = Mathf.Min(600, Screen.width - 20);
+            var panelWidth = Mathf.Min(720, Screen.width - 20);
             var panelHeight = Mathf.Min(580, Screen.height - 20);
             var rect = new Rect((Screen.width - panelWidth) * 0.5f, pad, panelWidth, panelHeight);
 
@@ -108,11 +107,11 @@ namespace Frontline.Buildables
             DrawLabelSection();
 
             GUILayout.Space(6);
-            // Milestone 7.3: Weight-based capacity display.
+            // Milestone 7.5: Weight-based capacity display with correct slot/count semantics.
             var weightStr = $"{_active.CurrentWeight:F1}/{_active.MaxWeight:F0} kg";
-            var slotsStr = $"slots {_active.SlotsUsed}/{_active.MaxSlots}";
-            var countStr = $"count {_active.TotalCount}/{_active.MaxTotalCount}";
-            GUILayout.Label($"Capacity: {weightStr} | {slotsStr} | {countStr}");
+            var slotsStr = $"types {_active.SlotsUsed}/{_active.MaxSlots}";
+            var qtyStr = $"items {_active.TotalQuantity}";
+            GUILayout.Label($"Crate Capacity: {weightStr} | {slotsStr} | {qtyStr}");
 
             if (_active.IsOverWeight)
             {
@@ -122,77 +121,118 @@ namespace Frontline.Buildables
                 GUI.color = prevColor;
             }
 
+            GUILayout.Space(4);
+            GUILayout.Label("Shift+Click item to quick-transfer | Click buttons to transfer amounts");
+
             GUILayout.Space(8);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Transfer All: Player → Crate", GUILayout.Width(200)))
+            if (GUILayout.Button("Transfer All →", GUILayout.Width(120)))
                 TransferAllPlayerToCrate();
-            if (GUILayout.Button("Transfer All: Crate → Player", GUILayout.Width(200)))
+            if (GUILayout.Button("← Transfer All", GUILayout.Width(120)))
                 TransferAllCrateToPlayer();
-            if (GUILayout.Button("Close", GUILayout.Width(70)))
-                Close();
-            GUILayout.EndHorizontal();
-
-            // Milestone 7.3: Upgrade and Destroy buttons.
-            GUILayout.Space(4);
-            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
             if (GUILayout.Button($"Upgrade (Lv.{_active.UpgradeLevel})", GUILayout.Width(120)))
             {
                 _active.TryUpgrade();
                 if (BuildablesService.Instance != null)
                     BuildablesService.Instance.MarkDirty();
             }
-            GUILayout.FlexibleSpace();
             var prevBg = GUI.backgroundColor;
             GUI.backgroundColor = new Color(1f, 0.4f, 0.4f);
-            if (GUILayout.Button("Destroy Crate", GUILayout.Width(120)))
+            if (GUILayout.Button("Destroy", GUILayout.Width(70)))
             {
                 _active.DestroyCrate();
                 Close();
             }
             GUI.backgroundColor = prevBg;
+            if (GUILayout.Button("Close", GUILayout.Width(60)))
+                Close();
             GUILayout.EndHorizontal();
 
             GUILayout.Space(8);
-            _scroll = GUILayout.BeginScrollView(_scroll);
 
-            GUILayout.Label("Player Resources (mat_*):");
+            // Milestone 7.5: Two-panel layout (Player | Crate).
+            GUILayout.BeginHorizontal();
+
+            // Left panel: Player inventory.
+            GUILayout.BeginVertical(GUI.skin.box, GUILayout.Width(340));
+            GUILayout.Label("Player Inventory");
+            _scrollLeft = GUILayout.BeginScrollView(_scrollLeft, GUILayout.Height(380));
+
             foreach (var id in ResourceOrder)
             {
                 var amt = PlayerInventoryService.Instance.GetResource(id);
+                if (amt <= 0) continue;
+
                 GUILayout.BeginHorizontal();
-                GUILayout.Label($"{id}: {amt}", GUILayout.Width(220));
-                var prev = GUI.enabled;
-                GUI.enabled = amt > 0;
-                if (GUILayout.Button("+1", GUILayout.Width(50)))
-                    MovePlayerToCrate(id, 1);
-                if (GUILayout.Button("+5", GUILayout.Width(50)))
+                // Shift+Click to transfer all.
+                if (GUILayout.Button($"{id}: {amt}", GUILayout.Width(180)))
+                {
+                    if (Event.current.shift)
+                        MovePlayerToCrate(id, amt);
+                    else
+                        MovePlayerToCrate(id, 1);
+                }
+                if (GUILayout.Button("+5", GUILayout.Width(40)))
                     MovePlayerToCrate(id, 5);
-                if (GUILayout.Button("All", GUILayout.Width(60)))
+                if (GUILayout.Button("All", GUILayout.Width(40)))
                     MovePlayerToCrate(id, amt);
-                GUI.enabled = prev;
                 GUILayout.EndHorizontal();
             }
 
-            GUILayout.Space(10);
-            GUILayout.Label("Crate Contents:");
+            // Show empty slots.
+            var playerEmpty = true;
+            foreach (var id in ResourceOrder)
+            {
+                if (PlayerInventoryService.Instance.GetResource(id) > 0)
+                {
+                    playerEmpty = false;
+                    break;
+                }
+            }
+            if (playerEmpty)
+                GUILayout.Label("(no resources)");
+
+            GUILayout.EndScrollView();
+            GUILayout.EndVertical();
+
+            GUILayout.Space(8);
+
+            // Right panel: Crate inventory.
+            GUILayout.BeginVertical(GUI.skin.box, GUILayout.Width(340));
+            GUILayout.Label("Crate Contents");
+            _scrollRight = GUILayout.BeginScrollView(_scrollRight, GUILayout.Height(380));
 
             var items = _active.Items.OrderBy(kv => kv.Key).ToList();
             if (items.Count == 0)
                 GUILayout.Label("(empty)");
+
             foreach (var kv in items)
             {
                 GUILayout.BeginHorizontal();
-                GUILayout.Label($"{kv.Key}: {kv.Value}", GUILayout.Width(220));
-                if (GUILayout.Button("-1", GUILayout.Width(50)))
-                    MoveCrateToPlayer(kv.Key, 1);
-                if (GUILayout.Button("-5", GUILayout.Width(50)))
+                // Shift+Click to transfer all.
+                if (GUILayout.Button($"{kv.Key}: {kv.Value}", GUILayout.Width(180)))
+                {
+                    if (Event.current.shift)
+                        MoveCrateToPlayer(kv.Key, kv.Value);
+                    else
+                        MoveCrateToPlayer(kv.Key, 1);
+                }
+                if (GUILayout.Button("-5", GUILayout.Width(40)))
                     MoveCrateToPlayer(kv.Key, 5);
-                if (GUILayout.Button("All", GUILayout.Width(60)))
+                if (GUILayout.Button("All", GUILayout.Width(40)))
                     MoveCrateToPlayer(kv.Key, kv.Value);
                 GUILayout.EndHorizontal();
             }
 
             GUILayout.EndScrollView();
+            GUILayout.EndVertical();
+
+            GUILayout.EndHorizontal();
+
+            // Show transfer errors.
+            InventoryTransferService.DrawErrorIfAny();
+
             GUILayout.EndArea();
         }
 
