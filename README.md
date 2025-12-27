@@ -589,3 +589,199 @@ Trucks now deal and receive collision damage:
 | J | Click transfers 1 item | PASS |
 | K | Transfer failures show error message | PASS |
 | L | Two-panel layout shows both inventories | PASS |
+
+## Milestone 8.1: Training Mission System
+
+### Overview
+
+The mission system gates the `infantry_1_rifleman` certification behind a training mission. New players spawn with only `recruit_basic` (can carry resources, cannot use weapons) and must complete "Basic Rifle Training" to unlock weapon use.
+
+### Training Range
+
+- **Location**: Position (25, 0, 25) in TacticalTest scene
+- **Entry trigger**: Walking into the range area completes first objective
+- **Targets**: 5 bullseye targets that respawn after being destroyed
+
+### Controls
+
+| Key | Action |
+|-----|--------|
+| **M** | Toggle mission panel (full view) |
+| **F9** | (Debug) Complete rifle training mission |
+| **F10** | (Debug) Reset all missions and revoke certs |
+| **F11** | (Debug) Grant rifleman certification directly |
+
+### Mission Flow
+
+1. New player spawns with `recruit_basic` certification
+2. `training_basic_rifle` mission auto-assigned
+3. Player approaches training range → first objective completes
+4. Player destroys 5 training targets → mission completes
+5. Rewards granted: +5 Trust, `infantry_1_rifleman` certification
+6. Player can now use rifles (`inf.basic` permission)
+
+### Persistence
+
+Mission progress saves to `Application.persistentDataPath/player_missions_v1`
+
+### Acceptance Tests
+
+| Test | Description | Status |
+|------|-------------|--------|
+| A | New player starts with only `recruit_basic` | PASS |
+| B | Training mission auto-assigned on start | PASS |
+| C | Entering training range completes first objective | PASS |
+| D | Destroying targets increments hit counter | PASS |
+| E | After 5 hits, mission completes | PASS |
+| F | Completion grants `infantry_1_rifleman` cert | PASS |
+| G | Mission HUD shows active objectives | PASS |
+| H | Debug hotkeys work (F9/F10/F11) | PASS |
+| I | Mission progress persists across sessions | PASS |
+
+## Milestone 8.2: Player Card System
+
+### Overview
+
+The Player Card system provides comprehensive player statistics tracking, name change history, and accountability features. It tracks everything from combat kills to logistics deliveries, mission completions, and leadership stats.
+
+### Controls
+
+| Key | Action |
+|-----|--------|
+| **P** | Toggle Player Card panel |
+| **Shift+K** | (Debug) Add 5 kills |
+| **Shift+T** | (Debug) Add 10 trust |
+| **F12** | (Debug) Reset all stats |
+
+### UI Tabs
+
+1. **Overview**: Quick stats, active certifications, medals
+2. **Combat**: Kills, deaths, damage, discipline
+3. **Logistics**: Gathering, engineering, vehicles, missions
+4. **Leadership**: Command stats, war record, discipline record
+5. **History**: Account info, name change, name history
+
+### Statistics Tracked
+
+- **Combat**: Kills, deaths, damage dealt/taken, revives, friendly fire
+- **Logistics**: Resources gathered/delivered, structures built/repaired
+- **Leadership**: Orders issued, commendations, war participation
+- **Discipline**: Imprisonment, certifications revoked, griefing reports
+- **Meta**: Time served, name change history
+
+### Persistence
+
+Stats save to `Application.persistentDataPath/player_stats_v1`
+
+### Acceptance Tests
+
+| Test | Description | Status |
+|------|-------------|--------|
+| A | Press P opens Player Card panel | PASS |
+| B | All 5 tabs display correctly | PASS |
+| C | Killing NPCs increases kill count | PASS |
+| D | Building structures increases build count | PASS |
+| E | Completing missions increases mission count | PASS |
+| F | Name change works and records history | PASS |
+| G | Time served accumulates during session | PASS |
+| H | Stats persist across sessions | PASS |
+| I | Debug hotkeys work (Shift+K, Shift+T, F12) | PASS |
+
+## Milestone 8.3: Mission Terminal System
+
+### Overview
+
+SWG-inspired mission terminal system that allows players to browse and accept missions from in-world terminals. Missions now have time limits, difficulty scaling, location coordinates, and terminal availability.
+
+### Features
+
+- **Mission terminals**: Interactable world objects for mission browsing
+- **Time limits**: Missions can have time limits; failure notification on expiry
+- **Difficulty scaling**: 1-10 difficulty with star display (★★★☆☆)
+- **Location data**: Objectives include x,y,z coordinates for waypoints
+- **Rewards**: Trust, credits, experience, items, certifications
+- **Repeatable missions**: Cooldown between repeats
+
+### Controls
+
+| Key | Action |
+|-----|--------|
+| **E** | Interact with terminal (when in range) |
+| **M** | Toggle mission HUD panel |
+| **Escape** | Close terminal panel |
+
+### Terminal Types
+
+- `training`: Training missions (rifle, logistics, engineering)
+- `combat`: Combat and destroy missions
+- `logistics`: Supply runs and delivery missions
+- `recon`: Survey and reconnaissance missions
+- `general`: All mission types
+
+### New Missions
+
+| Mission | Category | Difficulty | Time Limit | Rewards |
+|---------|----------|------------|------------|---------|
+| `training_basic_engineering` | training | 2 | 10 min | Builder cert, 75 credits |
+| `training_basic_medic` | training | 2 | 5 min | 50 credits |
+| `combat_destroy_outpost` | combat | 5 | 30 min | 300 credits, 15 trust |
+| `recon_survey_area` | recon | 3 | 15 min | 150 credits |
+| `defense_hold_position` | combat | 6 | 10 min | 400 credits, 20 trust |
+
+### Mission JSON Schema
+
+```json
+{
+  "missionId": "example_mission",
+  "displayName": "Example Mission",
+  "description": "Mission description here.",
+  "category": "training",
+  "difficulty": 2,
+  "requiredCertifications": ["recruit_basic"],
+  "requiredPermissions": [],
+  "minTrustScore": 5,
+  "minRankId": "e1",
+  "timeLimit": 600,
+  "autoAssign": false,
+  "repeatable": false,
+  "repeatCooldown": 3600,
+  "terminalAvailable": true,
+  "faction": "",
+  "terminalTypes": ["training"],
+  "objectives": [
+    {
+      "objectiveId": "obj_1",
+      "description": "Complete objective",
+      "type": "reach_location",
+      "targetId": "location_id",
+      "requiredCount": 1,
+      "optional": false,
+      "order": 1,
+      "location": { "x": 100.0, "y": 0.0, "z": 200.0 },
+      "locationRadius": 10.0,
+      "duration": 0
+    }
+  ],
+  "rewards": {
+    "trustPoints": 5,
+    "grantCertification": "",
+    "items": [],
+    "credits": 100,
+    "experience": 25
+  }
+}
+```
+
+### Acceptance Tests
+
+| Test | Description | Status |
+|------|-------------|--------|
+| A | Walk near terminal → interaction prompt appears | PASS |
+| B | Press E → terminal panel opens | PASS |
+| C | Filter missions by category | PASS |
+| D | Accept mission from terminal | PASS |
+| E | Timed mission shows countdown in HUD | PASS |
+| F | Mission fails when time expires | PASS |
+| G | Repeatable missions respect cooldown | PASS |
+| H | Difficulty stars display correctly | PASS |
+| I | Objectives show location coordinates | PASS |

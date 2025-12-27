@@ -15,6 +15,7 @@ namespace Frontline.Trust
         public string rankId = "";
         public string displayName = "";
         public int minTrust;
+        public string track = "enlisted"; // "enlisted" or "officer"
     }
 }
 

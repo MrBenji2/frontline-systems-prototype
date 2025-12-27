@@ -94,7 +94,7 @@ namespace Frontline.Trust
 
             if (_ranks.Count == 0)
             {
-                _ranks.Add(new RankDefinition { rankId = "r0", displayName = "Recruit", minTrust = 0 });
+                _ranks.Add(new RankDefinition { rankId = "e0", displayName = "Recruit", minTrust = 0, track = "enlisted" });
             }
         }
 
@@ -116,7 +116,7 @@ namespace Frontline.Trust
                 else
                     break;
             }
-            return string.IsNullOrWhiteSpace(best) ? "r0" : best;
+            return string.IsNullOrWhiteSpace(best) ? "e0" : best;
         }
 
         public bool GrantCertification(string certId)
@@ -296,7 +296,7 @@ namespace Frontline.Trust
                     playerId = string.IsNullOrWhiteSpace(snap.playerId) ? "local" : snap.playerId,
                     faction = ParseFaction(snap.faction),
                     trustScore = snap.trustScore,
-                    rankId = string.IsNullOrWhiteSpace(snap.rankId) ? "r0" : snap.rankId,
+                    rankId = string.IsNullOrWhiteSpace(snap.rankId) ? "e0" : snap.rankId,
                 };
 
                 State.RebuildIndexFromList(snap.certs);
@@ -347,8 +347,9 @@ namespace Frontline.Trust
             State.certsById = new Dictionary<string, PlayerCertificationState>(StringComparer.Ordinal);
             State.rankId = EvaluateRankId(State.trustScore);
 
-            // Required default cert on new profile: Infantry I.
-            GrantCertification("infantry_1_rifleman");
+            // Required default cert on new profile: Recruit (log.carry + inf.unarmed only).
+            // Players must complete training to unlock inf.basic (rifle use).
+            GrantCertification("recruit_basic");
         }
 
         private static FactionId ParseFaction(string s)
@@ -374,7 +375,7 @@ namespace Frontline.Trust
             public string playerId = "local";
             public string faction = "Neutral";
             public int trustScore;
-            public string rankId = "r0";
+            public string rankId = "e0";
             public List<PlayerCertificationState> certs = new();
         }
     }
