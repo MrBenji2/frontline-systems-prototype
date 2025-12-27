@@ -354,6 +354,106 @@
       { "rankId": "o10", "displayName": "General", "minTrust": 5000, "track": "officer" },
       { "rankId": "o11", "displayName": "Field Marshal", "minTrust": 10000, "track": "officer" }
     ]
+  },
+  "missions": {
+    "missions": [
+      {
+        "missionId": "training_basic_rifle",
+        "displayName": "Basic Rifle Training",
+        "description": "Learn to handle a rifle safely and effectively. Complete the shooting course to earn your Rifleman certification.",
+        "category": "training",
+        "autoAssign": true,
+        "repeatable": false,
+        "requiredCertId": "",
+        "requiredPermission": "",
+        "objectives": [
+          {
+            "objectiveId": "approach_range",
+            "description": "Approach the firing range",
+            "type": "reach_location",
+            "targetId": "training_range",
+            "requiredCount": 1,
+            "optional": false,
+            "order": 1
+          },
+          {
+            "objectiveId": "hit_targets",
+            "description": "Hit training targets (5)",
+            "type": "hit_target",
+            "targetId": "training_target",
+            "requiredCount": 5,
+            "optional": false,
+            "order": 2
+          }
+        ],
+        "rewards": {
+          "trustPoints": 5,
+          "grantCertification": "infantry_1_rifleman",
+          "items": []
+        }
+      },
+      {
+        "missionId": "training_basic_logistics",
+        "displayName": "Basic Logistics Training",
+        "description": "Learn the fundamentals of resource gathering and delivery. Complete a supply run to earn your Runner certification.",
+        "category": "training",
+        "autoAssign": false,
+        "repeatable": false,
+        "requiredCertId": "recruit_basic",
+        "requiredPermission": "",
+        "objectives": [
+          {
+            "objectiveId": "gather_scrap",
+            "description": "Gather scrap (10)",
+            "type": "gather_resource",
+            "targetId": "mat_scrap",
+            "requiredCount": 10,
+            "optional": false,
+            "order": 1
+          },
+          {
+            "objectiveId": "deliver_scrap",
+            "description": "Deliver scrap to a depot",
+            "type": "deliver_resource",
+            "targetId": "mat_scrap",
+            "requiredCount": 10,
+            "optional": false,
+            "order": 2
+          }
+        ],
+        "rewards": {
+          "trustPoints": 3,
+          "grantCertification": "logistics_1_runner",
+          "items": []
+        }
+      },
+      {
+        "missionId": "daily_supply_run",
+        "displayName": "Supply Run",
+        "description": "Deliver supplies to the front lines. A repeatable mission for logistics players.",
+        "category": "logistics",
+        "autoAssign": false,
+        "repeatable": true,
+        "requiredCertId": "logistics_1_runner",
+        "requiredPermission": "log.carry",
+        "objectives": [
+          {
+            "objectiveId": "deliver_materials",
+            "description": "Deliver materials (25)",
+            "type": "deliver_resource",
+            "targetId": "",
+            "requiredCount": 25,
+            "optional": false,
+            "order": 1
+          }
+        ],
+        "rewards": {
+          "trustPoints": 2,
+          "grantCertification": "",
+          "items": []
+        }
+      }
+    ]
   }
 }
 

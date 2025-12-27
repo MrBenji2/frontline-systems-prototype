@@ -589,3 +589,51 @@ Trucks now deal and receive collision damage:
 | J | Click transfers 1 item | PASS |
 | K | Transfer failures show error message | PASS |
 | L | Two-panel layout shows both inventories | PASS |
+
+## Milestone 8.1: Training Mission System
+
+### Overview
+
+The mission system gates the `infantry_1_rifleman` certification behind a training mission. New players spawn with only `recruit_basic` (can carry resources, cannot use weapons) and must complete "Basic Rifle Training" to unlock weapon use.
+
+### Training Range
+
+- **Location**: Position (25, 0, 25) in TacticalTest scene
+- **Entry trigger**: Walking into the range area completes first objective
+- **Targets**: 5 bullseye targets that respawn after being destroyed
+
+### Controls
+
+| Key | Action |
+|-----|--------|
+| **M** | Toggle mission panel (full view) |
+| **F9** | (Debug) Complete rifle training mission |
+| **F10** | (Debug) Reset all missions and revoke certs |
+| **F11** | (Debug) Grant rifleman certification directly |
+
+### Mission Flow
+
+1. New player spawns with `recruit_basic` certification
+2. `training_basic_rifle` mission auto-assigned
+3. Player approaches training range → first objective completes
+4. Player destroys 5 training targets → mission completes
+5. Rewards granted: +5 Trust, `infantry_1_rifleman` certification
+6. Player can now use rifles (`inf.basic` permission)
+
+### Persistence
+
+Mission progress saves to `Application.persistentDataPath/player_missions_v1`
+
+### Acceptance Tests
+
+| Test | Description | Status |
+|------|-------------|--------|
+| A | New player starts with only `recruit_basic` | PASS |
+| B | Training mission auto-assigned on start | PASS |
+| C | Entering training range completes first objective | PASS |
+| D | Destroying targets increments hit counter | PASS |
+| E | After 5 hits, mission completes | PASS |
+| F | Completion grants `infantry_1_rifleman` cert | PASS |
+| G | Mission HUD shows active objectives | PASS |
+| H | Debug hotkeys work (F9/F10/F11) | PASS |
+| I | Mission progress persists across sessions | PASS |

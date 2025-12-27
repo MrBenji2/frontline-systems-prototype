@@ -380,3 +380,190 @@ This update documents the specific implementation details for the recruit certif
 - Time served requirements
 
 These conditions are documented in the design but not yet implemented in code.
+
+---
+
+## Update 2025‑12‑27 – Implementation: Mission System (Milestone 8.1)
+
+This update documents the implementation of the training mission system that gates the `infantry_1_rifleman` certification, completing the recruit-to-rifleman progression loop.
+
+### Mission System Overview
+
+The mission system provides:
+- **Data-driven missions** defined in `definitions.json`
+- **Objective tracking** with multiple objective types
+- **Automatic reward grants** (trust points, certifications, items)
+- **Persistence** across sessions
+- **Auto-assignment** for training missions
+
+### Core Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `MissionDefinition` | `MissionDefinition.cs` | Data structure for mission definitions |
+| `MissionObjectiveDefinition` | `MissionDefinition.cs` | Data structure for objective definitions |
+| `MissionRewardsDefinition` | `MissionDefinition.cs` | Data structure for rewards |
+| `PlayerMissionState` | `PlayerMissionState.cs` | Tracks player's mission progress |
+| `MissionService` | `MissionService.cs` | Central service for mission management |
+| `MissionHudPanel` | `MissionHudPanel.cs` | UI for mission tracking |
+| `TrainingTarget` | `TrainingTarget.cs` | Target that reports hits to missions |
+| `MissionLocationTrigger` | `MissionLocationTrigger.cs` | Trigger zone for reach objectives |
+| `TrainingRangeSpawner` | `TrainingRangeSpawner.cs` | Spawns the rifle training range |
+| `MissionDebugHotkeys` | `MissionDebugHotkeys.cs` | Debug controls for testing |
+| `Milestone8Bootstrap` | `Milestone8Bootstrap.cs` | Initializes mission system |
+
+### Objective Types
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `hit_target` | Hit a training target | Hit 5 training targets |
+| `reach_location` | Enter a trigger zone | Reach the training range |
+| `gather_resource` | Gather a specific resource | Gather 10 scrap |
+| `deliver_resource` | Deliver resources to a depot | Deliver 10 scrap |
+| `kill_npc` | Kill NPCs | Kill 3 enemies |
+| `craft_item` | Craft an item | Craft a hammer |
+| `build_structure` | Build a structure | Build a wall |
+
+### Training Mission: Basic Rifle Training
+
+**Mission ID**: `training_basic_rifle`
+
+**Flow**:
+1. New player spawns with `recruit_basic` certification (only `log.carry` + `inf.unarmed`)
+2. Mission is **auto-assigned** on first login
+3. Player must:
+   - Approach the training range (reach_location objective)
+   - Hit 5 training targets (hit_target objective)
+4. On completion:
+   - +5 Trust points awarded
+   - `infantry_1_rifleman` certification granted
+   - Player can now use rifles (`inf.basic` permission)
+
+### Controls
+
+| Key | Action |
+|-----|--------|
+| **M** | Toggle mission panel (full view) |
+| **F9** | (Debug) Complete rifle training |
+| **F10** | (Debug) Reset missions + revoke certs |
+| **F11** | (Debug) Grant rifleman cert directly |
+
+### Mission State Persistence
+
+Mission progress saves to:
+- `Application.persistentDataPath/player_missions_v1`
+
+Saves on:
+- Mission accept
+- Objective progress
+- Mission completion
+- Mission abandon
+
+### Integration Points
+
+**MissionService → TrustService**:
+- Rewards call `TrustService.GrantCertification()` and increment `trustScore`
+
+**TrainingTarget → MissionService**:
+- `Health.Died` event triggers `MissionService.ReportProgress("hit_target", targetId)`
+
+**MissionLocationTrigger → MissionService**:
+- `OnTriggerEnter` calls `MissionService.ReportProgress("reach_location", locationId)`
+
+### JSON Schema (missions in definitions.json)
+
+```json
+{
+  "missions": {
+    "missions": [
+      {
+        "missionId": "training_basic_rifle",
+        "displayName": "Basic Rifle Training",
+        "description": "Complete the shooting course to earn your Rifleman certification.",
+        "category": "training",
+        "autoAssign": true,
+        "repeatable": false,
+        "requiredCertId": "",
+        "requiredPermission": "",
+        "objectives": [
+          {
+            "objectiveId": "approach_range",
+            "description": "Approach the firing range",
+            "type": "reach_location",
+            "targetId": "training_range",
+            "requiredCount": 1,
+            "optional": false,
+            "order": 1
+          },
+          {
+            "objectiveId": "hit_targets",
+            "description": "Hit training targets (5)",
+            "type": "hit_target",
+            "targetId": "training_target",
+            "requiredCount": 5,
+            "optional": false,
+            "order": 2
+          }
+        ],
+        "rewards": {
+          "trustPoints": 5,
+          "grantCertification": "infantry_1_rifleman",
+          "items": []
+        }
+      }
+    ]
+  }
+}
+```
+
+### Files Created/Modified
+
+**New Files**:
+- `Scripts/Systems/Missions/MissionDefinition.cs`
+- `Scripts/Systems/Missions/PlayerMissionState.cs`
+- `Scripts/Systems/Missions/MissionService.cs`
+- `Scripts/Systems/Missions/TrainingTarget.cs`
+- `Scripts/Systems/Missions/MissionLocationTrigger.cs`
+- `Scripts/Systems/Missions/TrainingRangeSpawner.cs`
+- `Scripts/Systems/Missions/MissionDebugHotkeys.cs`
+- `Scripts/Core/Milestone8Bootstrap.cs`
+- `Scripts/UI/MissionHudPanel.cs`
+
+**Modified Files**:
+- `Scripts/Definitions/GameDefinitions.cs` - Added `MissionsDefinitions missions` field
+- `Resources/definitions.json` - Added `missions` section with training missions
+
+### Verification Checklist
+
+1. **New player flow**:
+   - Start game with fresh save → player has `recruit_basic` only
+   - `training_basic_rifle` mission auto-assigned
+   - Cannot use weapons (no `inf.basic` permission)
+
+2. **Training range**:
+   - Navigate to training range at position (25, 0, 25)
+   - First objective completes on entering trigger zone
+   - 5 targets visible with bullseye textures
+
+3. **Target shooting**:
+   - Attack targets (LMB ranged or approach and melee)
+   - Each target hit increments objective progress
+   - Targets respawn after 2 seconds
+
+4. **Mission completion**:
+   - After 5 hits, mission completes
+   - Notification shows "+5 Trust" and "Certification unlocked: infantry_1_rifleman"
+   - Player can now use rifles
+
+5. **Debug verification**:
+   - F9 force-completes mission
+   - F10 resets all progress
+   - F11 grants cert directly (bypass mission)
+
+### Future Enhancements
+
+- **More training missions**: logistics, engineering, medic
+- **Mission chains**: sequential missions that unlock next steps
+- **Timed missions**: time limits with failure states
+- **Dynamic missions**: generated based on war state
+- **AI mission assignment**: BenjiBot suggests missions based on player skills

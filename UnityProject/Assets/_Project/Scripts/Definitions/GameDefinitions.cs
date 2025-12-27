@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Frontline.Missions;
 using Frontline.Trust;
 
 namespace Frontline.Definitions
@@ -16,6 +17,9 @@ namespace Frontline.Definitions
         // Milestone 7 (Trust): data-driven certifications + ranks.
         public CertificationsDefinitions certifications = new();
         public RanksDefinitions ranks = new();
+
+        // Milestone 8 (Missions): data-driven mission system.
+        public MissionsDefinitions missions = new();
     }
 
     [Serializable]
